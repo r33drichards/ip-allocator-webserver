@@ -16,9 +16,13 @@ mod error;
 mod handlers;
 mod store;
 mod guards;
+mod config;
+mod subscribers;
 
 pub struct AppState {
     redis_url: String,
+    config: config::AppConfig,
+    subs: subscribers::Subscribers,
 }
 
 #[rocket::main]
@@ -37,7 +41,27 @@ async fn main() {
     }
 
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
+
+    // Load config from optional --config <path>
+    let mut args_iter = args.iter();
+    let mut app_config = config::AppConfig::default();
+    while let Some(arg) = args_iter.next() {
+        if arg == "--config" {
+            if let Some(path) = args_iter.next() {
+                let path = std::path::Path::new(path);
+                match config::AppConfig::from_path(path) {
+                    Ok(cfg) => app_config = cfg,
+                    Err(e) => {
+                        eprintln!("Failed to load config from {}: {}", path.display(), e);
+                        std::process::exit(2);
+                    }
+                }
+            }
+        }
+    }
+
     let store = Store::new(redis_url.clone());
+    let subs = subscribers::Subscribers::new();
 
     let _ = rocket::build()
         .configure(rocket::Config {
@@ -47,6 +71,8 @@ async fn main() {
         })
         .manage(AppState {
             redis_url,
+            config: app_config,
+            subs,
         })
         .manage(Mutex::new(store))
         .mount(

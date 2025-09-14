@@ -5,7 +5,8 @@ use rocket_okapi::okapi::schemars::JsonSchema;
 use rocket::serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::error::OResult;
+use crate::error::{Error, OResult};
+use crate::AppState;
 use crate::store::Store;
 use crate::guards::debug_header;
 
@@ -35,16 +36,19 @@ pub struct ListIPsOutput {
 #[get("/ip/borrow")]
 pub async fn borrow_ip(
     store: &State<Mutex<Store>>,
+    app: &State<AppState>,
 ) -> OResult<BorrowIPOutput> {
     let store = store.lock().await;
-    
     match store.borrow_ip() {
         Ok(ip) => {
+            if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &ip).await {
+                // On borrow failure for must-succeed subscriber, return IP to freelist as rollback
+                let _ = store.return_ip(&ip);
+                return Err(Error::new("Subscriber Error", Some(&msg), 502));
+            }
             Ok(Json(BorrowIPOutput { ip }))
-        },
-        Err(e) => {
-            Err(crate::error::Error::from(e))
         }
+        Err(e) => Err(crate::error::Error::from(e)),
     }
 }
 
@@ -53,20 +57,21 @@ pub async fn borrow_ip(
 #[post("/ip/return", data = "<input>")]
 pub async fn return_ip(
     store: &State<Mutex<Store>>,
+    app: &State<AppState>,
     input: Json<ReturnIPInput>,
 ) -> OResult<ReturnIPOutput> {
+    // Notify subscribers first; if a must-succeed fails, do not return IP
+    if let Err((msg, _must)) = app.subs.notify_return(&app.config, &input.ip).await {
+        return Err(Error::new("Subscriber Error", Some(&msg), 502));
+    }
+
     let store = store.lock().await;
-    
     match store.return_ip(&input.ip) {
-        Ok(_) => {
-            Ok(Json(ReturnIPOutput {
-                success: true,
-                message: format!("Successfully returned IP: {}", input.ip),
-            }))
-        },
-        Err(e) => {
-            Err(crate::error::Error::from(e))
-        }
+        Ok(_) => Ok(Json(ReturnIPOutput {
+            success: true,
+            message: format!("Successfully returned IP: {}", input.ip),
+        })),
+        Err(e) => Err(crate::error::Error::from(e)),
     }
 }
 
