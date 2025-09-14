@@ -18,11 +18,14 @@ mod store;
 mod guards;
 mod config;
 mod subscribers;
+mod ops;
 
 pub struct AppState {
     redis_url: String,
     config: config::AppConfig,
     subs: subscribers::Subscribers,
+    ops: ops::OperationStore,
+    sse: ops::Broadcasters,
 }
 
 #[rocket::main]
@@ -35,6 +38,7 @@ async fn main() {
             handlers::ip::borrow_ip,
             handlers::ip::return_ip,
             handlers::ip::list_ips,
+            handlers::ip::get_operation_status,
         ](&settings);
         println!("{}", serde_json::to_string_pretty(&spec).unwrap());
         return;
@@ -62,6 +66,8 @@ async fn main() {
 
     let store = Store::new(redis_url.clone());
     let subs = subscribers::Subscribers::new();
+    let ops = ops::OperationStore::new();
+    let sse = ops::Broadcasters::new();
 
     let _ = rocket::build()
         .configure(rocket::Config {
@@ -73,6 +79,8 @@ async fn main() {
             redis_url,
             config: app_config,
             subs,
+            ops,
+            sse,
         })
         .manage(Mutex::new(store))
         .mount(
@@ -81,6 +89,13 @@ async fn main() {
                 handlers::ip::borrow_ip,
                 handlers::ip::return_ip,
                 handlers::ip::list_ips,
+                handlers::ip::get_operation_status,
+            ],
+        )
+        .mount(
+            "/",
+            routes![
+                handlers::ip::stream_operation_events,
             ],
         )
         .mount(

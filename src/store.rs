@@ -4,6 +4,7 @@ use std::collections::HashSet;
 // The key name for the IP address freelist in Redis
 const FREELIST_KEY: &str = "ip_freelist";
 
+#[derive(Clone)]
 pub struct Store {
     redis_url: String,
 }
@@ -48,7 +49,7 @@ impl Store {
         let mut con = client.get_connection()?;
         
         // Add the IP to the freelist
-        let added: i32 = con.sadd(FREELIST_KEY, ip)?;
+        let _added: i32 = con.sadd(FREELIST_KEY, ip)?;
         
         Ok(())
     }

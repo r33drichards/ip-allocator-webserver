@@ -14,6 +14,7 @@ pub struct ReturnEventPayload<'a> {
     pub ip: &'a str,
 }
 
+#[derive(Clone)]
 pub struct Subscribers {
     http: Client,
 }
