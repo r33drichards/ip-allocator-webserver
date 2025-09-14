@@ -6,6 +6,11 @@ services:
     volumes:
       - redis_data:/data
 
+  echo:
+    image: mendhak/http-https-echo:31
+    ports:
+      - "8080:8080"
+
   ip-allocator-webserver:
     build:
       context: .
@@ -13,8 +18,12 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+      - echo
     environment:
       - REDIS_URL=redis://redis:6379/
+    volumes:
+      - ./config.toml:/etc/ip-allocator/config.toml:ro
+    command: ["ip-allocator-webserver", "--config", "/etc/ip-allocator/config.toml"]
 
 volumes:
   redis_data:

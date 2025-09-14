@@ -1,0 +1,8 @@
+[borrow.subscribers.echo-borrow]
+post = "http://echo:8080/borrow"
+mustSuceed = false
+
+[return.subscribers.echo-return]
+post = "http://echo:8080/return"
+mustSuceed = true
+
