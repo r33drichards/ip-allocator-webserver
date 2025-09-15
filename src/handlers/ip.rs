@@ -54,7 +54,7 @@ pub async fn borrow(
     let store = store.lock().await;
     match store.borrow() {
         Ok(item) => {
-            if let Err((msg, _must))) = app.subs.notify_borrow(&app.config, &item).await {
+            if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &item).await {
                 // On subscriber failure for must-succeed, return item to freelist as rollback
                 let _ = store.return_item(&item);
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));

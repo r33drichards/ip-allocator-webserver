@@ -31,7 +31,8 @@ impl Store {
             Some(s) => serde_json::from_str::<Value>(&s).map_err(|e| {
                 redis::RedisError::from((
                     redis::ErrorKind::TypeError,
-                    format!("Stored value is not valid JSON: {}", e),
+                    "Stored value is not valid JSON",
+                    format!("{}", e),
                 ))
             }),
             None => Err(redis::RedisError::from((
@@ -50,7 +51,8 @@ impl Store {
         let payload = serde_json::to_string(value).map_err(|e| {
             redis::RedisError::from((
                 redis::ErrorKind::TypeError,
-                format!("Failed to serialize JSON: {}", e),
+                "Failed to serialize JSON",
+                format!("{}", e),
             ))
         })?;
         let _added: i32 = con.sadd(FREELIST_KEY, payload)?;
