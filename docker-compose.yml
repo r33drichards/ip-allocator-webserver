@@ -11,6 +11,17 @@ services:
     ports:
       - "8080:8080"
 
+  fake-async:
+    build:
+      context: .
+      dockerfile: Dockerfile.fake-async
+    environment:
+      - ROCKET_ADDRESS=0.0.0.0
+      - ROCKET_PORT=8081
+      - FAKE_SUB_DELAY_SECS=15
+    ports:
+      - "8081:8081"
+
   ip-allocator-webserver:
     build:
       context: .
@@ -19,6 +30,7 @@ services:
     depends_on:
       - redis
       - echo
+      - fake-async
     environment:
       - REDIS_URL=redis://redis:6379/
     volumes:

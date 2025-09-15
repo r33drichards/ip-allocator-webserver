@@ -7,6 +7,8 @@ pub struct SubscriberDef {
     pub post: String,
     #[serde(default)]
     pub mustSuceed: bool,
+    #[serde(default, rename = "async")]
+    pub r#async: bool,
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]

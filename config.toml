@@ -1,6 +1,26 @@
 
-
-[return.subscribers.echo-return]
-post = "http://host.docker.internal:8889/return"
+[borrow.subscribers.echo-borrow]
+post = "http://echo:8080/borrow"
 mustSuceed = true
+async = false
 
+
+[borrow.subscribers.fake-return-can-fail]
+post = "http://fake-async:8081/return"
+mustSuceed = false
+async = true
+
+[borrow.subscribers.echo-return]
+post = "http://echo:8080/return"
+mustSuceed = true
+async = false
+
+[return.subscribers.async-return]
+post = "http://fake-async:8081/return"
+mustSuceed = true
+async = true
+
+[return.subscribers.noncritical]
+post = "http://echo:8080/noop"
+mustSuceed = false
+async = false

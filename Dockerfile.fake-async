@@ -1,0 +1,16 @@
+FROM rust:1.84 AS builder
+
+WORKDIR /usr/src/app
+COPY . .
+RUN cargo build --release --bin fake_async_subscriber
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/src/app/target/release/fake_async_subscriber /usr/local/bin/
+
+ENV ROCKET_ADDRESS=0.0.0.0
+ENV ROCKET_PORT=8081
+EXPOSE 8081
+CMD ["fake_async_subscriber"]
+
+

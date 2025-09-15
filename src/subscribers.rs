@@ -76,7 +76,7 @@ impl Subscribers {
                 else { continue; }
             }
 
-            if def.mustSuceed {
+            if def.mustSuceed && def.r#async {
                 // Try to read operation_id and poll until completion
                 let ack: OperationAck = match resp.json().await {
                     Ok(a) => a,
