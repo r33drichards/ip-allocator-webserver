@@ -11,10 +11,11 @@ use crate::store::Store;
 use crate::ops::OperationStatus;
 use rocket::response::stream::{Event, EventStream};
 use rocket::tokio::time::{interval, Duration};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
-pub struct ReturnIPInput {
-    ip: String,
+pub struct ReturnInput {
+    item: Value,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
@@ -24,14 +25,11 @@ pub struct ReturnIPOutput {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
-pub struct BorrowIPOutput {
-    ip: String,
+pub struct BorrowOutput {
+    item: Value,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone)]
-pub struct ListIPsOutput {
-    ips: Vec<String>,
-}
+// listing is intentionally removed for generic store
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct OperationRef {
@@ -46,39 +44,39 @@ pub struct OperationStatusOutput {
     message: Option<String>,
 }
 
-/// Borrow an IP address from the freelist
+/// Borrow an item from the freelist
 #[openapi]
-#[get("/ip/borrow")]
-pub async fn borrow_ip(
+#[get("/borrow")]
+pub async fn borrow(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
-) -> OResult<BorrowIPOutput> {
+) -> OResult<BorrowOutput> {
     let store = store.lock().await;
-    match store.borrow_ip() {
-        Ok(ip) => {
-            if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &ip).await {
-                // On borrow failure for must-succeed subscriber, return IP to freelist as rollback
-                let _ = store.return_ip(&ip);
+    match store.borrow() {
+        Ok(item) => {
+            if let Err((msg, _must))) = app.subs.notify_borrow(&app.config, &item).await {
+                // On subscriber failure for must-succeed, return item to freelist as rollback
+                let _ = store.return_item(&item);
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));
             }
-            Ok(Json(BorrowIPOutput { ip }))
+            Ok(Json(BorrowOutput { item }))
         }
         Err(e) => Err(crate::error::Error::from(e)),
     }
 }
 
-/// Return an IP address to the freelist
+/// Return an item to the freelist
 #[openapi]
-#[post("/ip/return", data = "<input>")]
-pub async fn return_ip(
+#[post("/return", data = "<input>")]
+pub async fn return_item(
     _store: &State<Mutex<Store>>,
     app: &State<AppState>,
-    input: Json<ReturnIPInput>,
+    input: Json<ReturnInput>,
 ) -> OResult<OperationRef> {
     // Create operation
     let op_id = uuid::Uuid::new_v4().to_string();
     let op_id_resp = op_id.clone();
-    let ip_value = input.ip.clone();
+    let item_value = input.item.clone();
     let subs = app.subs.clone();
     let ops = app.ops.clone();
     let sse = app.sse.clone();
@@ -95,16 +93,16 @@ pub async fn return_ip(
                 must.insert(name.clone());
             }
         }
-        let _ = ops.create(op_id.clone(), ip_value.clone(), must).await;
+        let _ = ops.create(op_id.clone(), item_value.clone(), must).await;
         sse.notify(&op_id, serde_json::json!({"event":"created"}).to_string()).await;
 
         // Run notifications sequentially respecting must-succeed
-        match subs.notify_return(&cfg, &ip_value).await {
+        match subs.notify_return(&cfg, &item_value).await {
             Ok(()) => {
                 ops.set_status(&op_id, OperationStatus::InProgress).await;
                 sse.notify(&op_id, serde_json::json!({"event":"notifications_ok"}).to_string()).await;
                 let store = Store::new(redis_url);
-                match store.return_ip(&ip_value) {
+                match store.return_item(&item_value) {
                     Ok(_) => {
                         ops.set_status(&op_id, OperationStatus::Succeeded).await;
                         sse.notify(&op_id, serde_json::json!({"event":"completed"}).to_string()).await;
@@ -127,25 +125,7 @@ pub async fn return_ip(
     Ok(Json(OperationRef { operation_id: op_id_resp, status: "accepted".to_string() }))
 }
 
-/// List all available IP addresses in the freelist
-#[openapi]
-#[get("/ip/list")]
-pub async fn list_ips(
-    store: &State<Mutex<Store>>,
-) -> OResult<ListIPsOutput> {
-    let store = store.lock().await;
-    
-    match store.list_ips() {
-        Ok(ips) => {
-            Ok(Json(ListIPsOutput {
-                ips: ips.into_iter().collect(),
-            }))
-        },
-        Err(e) => {
-            Err(crate::error::Error::from(e))
-        }
-    }
-}
+// list endpoint removed
 
 /// Poll the status of an async operation
 #[openapi]

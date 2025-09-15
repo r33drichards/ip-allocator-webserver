@@ -35,9 +35,8 @@ async fn main() {
     if args.contains(&"--print-openapi".to_string()) {
         let settings = rocket_okapi::settings::OpenApiSettings::new();
         let spec = rocket_okapi::openapi_spec![
-            handlers::ip::borrow_ip,
-            handlers::ip::return_ip,
-            handlers::ip::list_ips,
+            handlers::ip::borrow,
+            handlers::ip::return_item,
             handlers::ip::get_operation_status,
         ](&settings);
         println!("{}", serde_json::to_string_pretty(&spec).unwrap());
@@ -86,9 +85,8 @@ async fn main() {
         .mount(
             "/",
             openapi_get_routes![
-                handlers::ip::borrow_ip,
-                handlers::ip::return_ip,
-                handlers::ip::list_ips,
+                handlers::ip::borrow,
+                handlers::ip::return_item,
                 handlers::ip::get_operation_status,
             ],
         )

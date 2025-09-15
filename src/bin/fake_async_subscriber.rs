@@ -3,6 +3,7 @@ use std::env;
 use std::time::Duration;
 
 use rocket::serde::{Deserialize, Serialize, json::Json};
+use serde_json::Value;
 use rocket::{get, post, routes, State};
 use tokio::sync::Mutex;
 
@@ -15,7 +16,7 @@ struct AppState {
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 struct ReturnPayload {
-    ip: String,
+    item: Value,
 }
 
 #[derive(Serialize)]
@@ -34,7 +35,7 @@ struct StatusResponse {
 
 #[post("/return", data = "<payload>")]
 async fn handle_return(state: &State<AppState>, payload: Json<ReturnPayload>) -> Json<AckResponse> {
-    let _ip = payload.ip.clone();
+    let _item = payload.item.clone();
     let op_id = uuid::Uuid::new_v4().to_string();
     let op_id_resp = op_id.clone();
 

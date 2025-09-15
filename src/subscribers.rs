@@ -3,18 +3,19 @@ use std::collections::HashMap;
 use crate::config::{AppConfig, SubscriberDef};
 use reqwest::Client;
 use serde::Serialize;
+use serde_json::Value;
 use serde::Deserialize;
 use tokio::time::{sleep, Duration};
 use reqwest::Url;
 
 #[derive(Debug, Serialize)]
 pub struct BorrowEventPayload<'a> {
-    pub ip: &'a str,
+    pub item: &'a Value,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ReturnEventPayload<'a> {
-    pub ip: &'a str,
+    pub item: &'a Value,
 }
 
 #[derive(Clone)]
@@ -32,17 +33,17 @@ impl Subscribers {
     pub async fn notify_borrow(
         &self,
         cfg: &AppConfig,
-        ip: &str,
+        item: &Value,
     ) -> Result<(), (String, bool)> {
-        self.dispatch_and_wait(&cfg.borrow.subscribers, &BorrowEventPayload { ip }).await
+        self.dispatch_and_wait(&cfg.borrow.subscribers, &BorrowEventPayload { item }).await
     }
 
     pub async fn notify_return(
         &self,
         cfg: &AppConfig,
-        ip: &str,
+        item: &Value,
     ) -> Result<(), (String, bool)> {
-        self.dispatch_and_wait(&cfg.r#return.subscribers, &ReturnEventPayload { ip }).await
+        self.dispatch_and_wait(&cfg.r#return.subscribers, &ReturnEventPayload { item }).await
     }
 
 }

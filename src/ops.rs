@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::RwLock;
 use tokio::sync::broadcast;
 
@@ -17,7 +18,7 @@ pub enum OperationStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Operation {
     pub id: String,
-    pub ip: String,
+    pub item: Value,
     pub status: OperationStatus,
     pub message: Option<String>,
     pub must_succeed: HashSet<String>,
@@ -25,14 +26,14 @@ pub struct Operation {
 }
 
 impl Operation {
-    pub fn new(id: String, ip: String, must_succeed: HashSet<String>) -> Self {
+    pub fn new(id: String, item: Value, must_succeed: HashSet<String>) -> Self {
         let mut subscribers = HashMap::new();
         for name in &must_succeed {
             subscribers.insert(name.clone(), OperationStatus::Pending);
         }
         Self {
             id,
-            ip,
+            item,
             status: OperationStatus::Pending,
             message: None,
             must_succeed,
@@ -53,8 +54,8 @@ impl OperationStore {
         }
     }
 
-    pub async fn create(&self, id: String, ip: String, must: HashSet<String>) -> Operation {
-        let op = Operation::new(id.clone(), ip, must);
+    pub async fn create(&self, id: String, item: Value, must: HashSet<String>) -> Operation {
+        let op = Operation::new(id.clone(), item, must);
         let mut guard = self.inner.write().await;
         guard.insert(id.clone(), op.clone());
         op

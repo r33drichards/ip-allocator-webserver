@@ -1,8 +1,8 @@
 use redis::{Client, Commands, RedisResult};
-use std::collections::HashSet;
+use serde_json::Value;
 
-// The key name for the IP address freelist in Redis
-const FREELIST_KEY: &str = "ip_freelist";
+// The key name for the freelist in Redis
+const FREELIST_KEY: &str = "freelist";
 
 #[derive(Clone)]
 pub struct Store {
@@ -18,50 +18,43 @@ impl Store {
         redis::Client::open(self.redis_url.clone())
     }
 
-    pub fn borrow_ip(&self) -> RedisResult<String> {
+    pub fn borrow(&self) -> RedisResult<Value> {
         // Connect to Redis
         let client = self.get_redis_client()?;
         let mut con = client.get_connection()?;
         
-        // Try to pop an IP address from the freelist
-        let ip: Option<String> = con.spop(FREELIST_KEY)?;
+        // Try to pop a value from the freelist
+        let raw: Option<String> = con.spop(FREELIST_KEY)?;
         
-        // Return the IP or an error if none available
-        ip.ok_or_else(|| {
-            redis::RedisError::from((
+        // Return the JSON value or an error if none available
+        match raw {
+            Some(s) => serde_json::from_str::<Value>(&s).map_err(|e| {
+                redis::RedisError::from((
+                    redis::ErrorKind::TypeError,
+                    format!("Stored value is not valid JSON: {}", e),
+                ))
+            }),
+            None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
-                "No IP addresses available in the freelist",
-            ))
-        })
+                "No items available in the freelist",
+            ))),
+        }
     }
 
-    pub fn return_ip(&self, ip: &str) -> RedisResult<()> {
-        // Simple validation to ensure the IP has some format
-        if ip.trim().is_empty() {
-            return Err(redis::RedisError::from((
-                redis::ErrorKind::InvalidClientConfig,
-                "Invalid IP address provided",
-            )));
-        }
-        
+    pub fn return_item(&self, value: &Value) -> RedisResult<()> {
         // Connect to Redis
         let client = self.get_redis_client()?;
         let mut con = client.get_connection()?;
         
-        // Add the IP to the freelist
-        let _added: i32 = con.sadd(FREELIST_KEY, ip)?;
+        // Add the item (as serialized JSON) to the freelist
+        let payload = serde_json::to_string(value).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                format!("Failed to serialize JSON: {}", e),
+            ))
+        })?;
+        let _added: i32 = con.sadd(FREELIST_KEY, payload)?;
         
         Ok(())
-    }
-
-    pub fn list_ips(&self) -> RedisResult<HashSet<String>> {
-        // Connect to Redis
-        let client = self.get_redis_client()?;
-        let mut con = client.get_connection()?;
-        
-        // Get all IPs in the freelist
-        let ips: HashSet<String> = con.smembers(FREELIST_KEY)?;
-        
-        Ok(ips)
     }
 }
