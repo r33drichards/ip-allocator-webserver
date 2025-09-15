@@ -18,7 +18,7 @@ services:
     environment:
       - ROCKET_ADDRESS=0.0.0.0
       - ROCKET_PORT=8081
-      - FAKE_SUB_DELAY_SECS=15
+      - FAKE_SUB_DELAY_SECS=${FAKE_SUB_DELAY_SECS:-15}
     ports:
       - "8081:8081"
 
@@ -34,7 +34,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/
     volumes:
-      - ./config.toml:/etc/ip-allocator/config.toml:ro
+      - ${CONFIG_FILE:-./config.toml}:/etc/ip-allocator/config.toml:ro
     command: ["ip-allocator-webserver", "--config", "/etc/ip-allocator/config.toml"]
 
 volumes:

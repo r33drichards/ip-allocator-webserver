@@ -8,7 +8,7 @@ async = false
 [borrow.subscribers.fake-return-can-fail]
 post = "http://fake-async:8081/return"
 mustSuceed = false
-async = true
+async = truec
 
 [borrow.subscribers.echo-return]
 post = "http://echo:8080/return"

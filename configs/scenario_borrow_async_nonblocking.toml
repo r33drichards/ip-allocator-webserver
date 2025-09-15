@@ -1,0 +1,4 @@
+[borrow.subscribers.fake-return-can-fail]
+post = "http://fake-async:8081/return"
+mustSuceed = false
+async = true

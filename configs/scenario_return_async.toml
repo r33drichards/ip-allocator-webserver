@@ -1,0 +1,4 @@
+[return.subscribers.async-return]
+post = "http://fake-async:8081/return"
+mustSuceed = true
+async = true
