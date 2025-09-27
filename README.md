@@ -11,9 +11,9 @@ A RESTful API wrapper around the IP allocator CLI tool, built with Rust and Rock
 
 ## API Endpoints
 
-- `GET /ip/borrow` - Borrow an IP address
-- `POST /ip/return` - Return an IP address to the freelist
-- `GET /ip/list` - List all available IP addresses
+- `GET /ip/borrow` - Borrow an ssh config
+- `POST /ip/return` - Return an ssh config 
+- `GET /ip/list` - List all ssh configs
 - `/swagger-ui/` - Swagger UI for API documentation
 - `/rapidoc/` - Alternative API documentation
 
