@@ -64,6 +64,30 @@ async fn main() {
     }
 
     let store = Store::new(redis_url.clone());
+
+    // Test Redis connection on startup - fail fast if unavailable
+    if let Err(e) = store.test_connection() {
+        eprintln!("=================================================");
+        eprintln!("ERROR: Failed to connect to Redis");
+        eprintln!("=================================================");
+        eprintln!();
+        eprintln!("Connection error: {}", e);
+        eprintln!();
+        eprintln!("Current REDIS_URL: {}", redis_url);
+        eprintln!();
+        eprintln!("Please ensure that:");
+        eprintln!("  1. Redis server is running and accessible");
+        eprintln!("  2. The REDIS_URL environment variable is set correctly");
+        eprintln!("     Example: export REDIS_URL='redis://127.0.0.1:6379/'");
+        eprintln!("  3. Network connectivity allows access to the Redis server");
+        eprintln!("  4. Redis authentication credentials are correct (if required)");
+        eprintln!();
+        eprintln!("=================================================");
+        std::process::exit(1);
+    }
+
+    println!("✓ Successfully connected to Redis at {}", redis_url);
+
     let subs = subscribers::Subscribers::new();
     let ops = ops::OperationStore::new();
     let sse = ops::Broadcasters::new();

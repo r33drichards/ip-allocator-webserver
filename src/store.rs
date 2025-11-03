@@ -18,6 +18,16 @@ impl Store {
         redis::Client::open(self.redis_url.clone())
     }
 
+    /// Test the Redis connection to ensure it's working
+    /// This should be called on startup to fail fast if Redis is unavailable
+    pub fn test_connection(&self) -> RedisResult<()> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+        // Simple PING command to verify connection
+        redis::cmd("PING").query::<()>(&mut con)?;
+        Ok(())
+    }
+
     pub fn borrow(&self) -> RedisResult<Value> {
         // Connect to Redis
         let client = self.get_redis_client()?;
