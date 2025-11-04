@@ -1,0 +1,25 @@
+[package]
+name = "ip-allocator-client"
+version = "0.1.0"
+edition = "2021"
+authors = ["r33drichards"]
+description = "Rust API client for ip-allocator-webserver"
+license = "MIT"
+repository = "https://github.com/r33drichards/ip-allocator-webserver"
+readme = "README.md"
+keywords = ["api-client", "openapi", "http-client"]
+categories = ["api-bindings", "web-programming::http-client"]
+
+[dependencies]
+progenitor-client = "0.8.0"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+
+[build-dependencies]
+progenitor = "0.8.0"
+serde_json = "1.0"
+syn = "2.0"
+prettyplease = "0.2"

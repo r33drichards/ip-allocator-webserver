@@ -1,0 +1,194 @@
+name: Generate and Publish Rust SDK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'ip-allocator-client/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: false
+        default: ''
+      publish:
+        description: 'Publish to crates.io (yes/no)'
+        required: false
+        default: 'no'
+
+env:
+  PACKAGE_NAME: "ip-allocator-client"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Determine version
+        id: version
+        run: |
+          # Read base version from ip-allocator-client/Cargo.toml
+          BASE_VERSION=$(grep -E '^version = ' ip-allocator-client/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, append beta suffix
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            VERSION="${BASE_VERSION}-beta.${PR_NUMBER}.${SHORT_SHA}"
+          else
+            # For main branch, use the version from Cargo.toml
+            VERSION="$BASE_VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Package version: $VERSION"
+
+      - name: Update version for beta builds
+        if: github.event_name == 'pull_request'
+        run: |
+          # Update version in Cargo.toml for beta builds
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' ip-allocator-client/Cargo.toml
+          echo "Updated ip-allocator-client/Cargo.toml to version ${{ steps.version.outputs.version }}"
+
+      - name: Generate OpenAPI spec and build SDK
+        run: |
+          echo "📝 Generating OpenAPI specification..."
+          nix run .#generateRustSdk
+
+      - name: Run tests
+        working-directory: ip-allocator-client
+        run: |
+          cargo test --verbose
+
+      - name: Build SDK in release mode
+        working-directory: ip-allocator-client
+        run: |
+          cargo build --release --verbose
+
+      - name: Verify package
+        working-directory: ip-allocator-client
+        run: |
+          cargo package --list
+
+      - name: Publish to crates.io (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: ip-allocator-client
+        run: |
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+      - name: Publish to crates.io (manual)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'yes'
+        working-directory: ip-allocator-client
+        run: |
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Comment on PR with package info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.version.outputs.version }}';
+            const packageName = '${{ env.PACKAGE_NAME }}';
+
+            const comment = `## 🦀 Rust SDK Built Successfully
+
+            A beta version of the Rust SDK has been built for this PR!
+
+            **Package:** \`${packageName}\`
+            **Version:** \`${version}\`
+
+            ### Installation (after manual publish)
+
+            Add this to your \`Cargo.toml\`:
+
+            \`\`\`toml
+            [dependencies]
+            ${packageName} = "${version}"
+            \`\`\`
+
+            ### Usage Example
+
+            \`\`\`rust
+            use ${packageName.replace(/-/g, '_')}::Client;
+
+            #[tokio::main]
+            async fn main() -> Result<(), Box<dyn std::error::Error>> {
+                let client = Client::new("http://localhost:8000")?;
+
+                // Borrow an item
+                let result = client.handlers_ip_borrow().await?;
+                println!("Borrowed item: {:?}", result);
+
+                Ok(())
+            }
+            \`\`\`
+
+            ### Local Testing
+
+            You can also use the SDK from the repository:
+
+            \`\`\`toml
+            [dependencies]
+            ${packageName} = { git = "https://github.com/${{ github.repository }}", branch = "${{ github.head_ref }}" }
+            \`\`\`
+
+            ---
+            **Note:** Beta versions are not automatically published to crates.io. To test, use the git dependency above.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload SDK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-sdk-${{ steps.version.outputs.version }}
+          path: ip-allocator-client/
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🦀 Rust SDK Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** \`${{ env.PACKAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "✅ **Status:** SDK built and published to crates.io" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "✅ **Status:** SDK built successfully (beta version)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Status:** SDK built successfully" >> $GITHUB_STEP_SUMMARY
+          fi
