@@ -10,7 +10,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let client = Client::new("http://localhost:8000")?;
+//!     let client = Client::new("http://localhost:8000");
 //!
 //!     // Borrow an item
 //!     let result = client.handlers_ip_borrow().await?;
