@@ -54,7 +54,7 @@
           };
         };
 
-        # Script to generate and publish Rust SDK
+        # Script to generate and build Rust SDK
         generateRustSdkScript = pkgs.writeShellScriptBin "generate-rust-sdk" ''
           set -e
 
@@ -76,25 +76,11 @@
           echo "📝 Generating OpenAPI specification..."
           ${rustPackage}/bin/ip-allocator-webserver --print-openapi > "$SDK_DIR/openapi.json"
 
-          echo "🦀 Building Rust SDK..."
-          cd "$SDK_DIR"
-
-          # Build the SDK (progenitor will generate code via build.rs)
-          ${pkgs.cargo}/bin/cargo build --release
-
-          echo "✅ Rust SDK built successfully!"
+          echo "✅ OpenAPI spec generated successfully!"
           echo ""
-          echo "📦 SDK location: $SDK_DIR"
           echo "📄 OpenAPI spec: $SDK_DIR/openapi.json"
           echo ""
-          echo "To test the SDK:"
-          echo "  cd $SDK_DIR"
-          echo "  cargo test"
-          echo ""
-          echo "To publish to crates.io:"
-          echo "  cd $SDK_DIR"
-          echo "  cargo login"
-          echo "  cargo publish"
+          echo "Note: SDK code will be generated during cargo build via build.rs"
         '';
 
       in

@@ -43,11 +43,6 @@ jobs:
       - name: Setup Nix cache
         uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-
       - name: Determine version
         id: version
         run: |
@@ -83,30 +78,30 @@ jobs:
       - name: Run tests
         working-directory: ip-allocator-client
         run: |
-          cargo test --verbose
+          nix develop ../ -c cargo test --verbose
 
       - name: Build SDK in release mode
         working-directory: ip-allocator-client
         run: |
-          cargo build --release --verbose
+          nix develop ../ -c cargo build --release --verbose
 
       - name: Verify package
         working-directory: ip-allocator-client
         run: |
-          cargo package --list
+          nix develop ../ -c cargo package --list
 
       - name: Publish to crates.io (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: ip-allocator-client
         run: |
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          nix develop ../ -c cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
         continue-on-error: true
 
       - name: Publish to crates.io (manual)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'yes'
         working-directory: ip-allocator-client
         run: |
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          nix develop ../ -c cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Comment on PR with package info
         if: github.event_name == 'pull_request'
