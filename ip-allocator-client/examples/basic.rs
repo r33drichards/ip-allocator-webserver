@@ -3,7 +3,7 @@ use ip_allocator_client::Client;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a new client
-    let client = Client::new("http://localhost:8000")?;
+    let client = Client::new("http://localhost:8000");
 
     // Borrow an item from the freelist
     println!("🔄 Borrowing an item...");
