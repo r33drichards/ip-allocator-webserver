@@ -75,14 +75,9 @@ jobs:
           echo "📝 Generating OpenAPI specification..."
           nix run .#generateRustSdk
 
-      - name: Set up Docker
-        run: |
-          # Ensure Docker daemon is running (it should be by default on ubuntu-latest)
-          sudo systemctl start docker || true
-          # Add current user to docker group to run docker without sudo
-          sudo usermod -aG docker $USER || true
-          # Verify Docker is accessible
-          docker version
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Run tests
         working-directory: ip-allocator-client
