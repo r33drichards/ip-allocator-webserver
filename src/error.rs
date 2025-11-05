@@ -77,6 +77,18 @@ impl OpenApiResponderInner for Error {
                 ..Default::default()
             }),
         );
+        responses.insert(
+            "503".to_string(),
+            RefOr::Object(OpenApiReponse {
+                description: "\
+                # [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\n\
+                This response is given when the requested resource is temporarily unavailable. \
+                For example, when trying to borrow an IP but none are currently available in the freelist. \
+                Clients should retry after a delay.\
+                ".to_string(),
+                ..Default::default()
+            }),
+        );
         Ok(Responses {
             responses,
             ..Default::default()
@@ -129,10 +141,19 @@ impl From<rocket::serde::json::Error<'_>> for Error {
 
 impl From<redis::RedisError> for Error {
     fn from(err: redis::RedisError) -> Self {
+        // Check if this is a "no items available" error (resource unavailable)
+        // which should return 503 Service Unavailable instead of 500
+        let error_msg = err.to_string();
+        let http_status_code = if error_msg.contains("No items available in the freelist") {
+            503 // Service Unavailable - resource temporarily exhausted
+        } else {
+            500 // Internal Server Error - actual Redis failures
+        };
+
         Error {
             err: "Redis Error".to_owned(),
-            msg: Some(err.to_string()),
-            http_status_code: 500,
+            msg: Some(error_msg),
+            http_status_code,
         }
     }
 }
