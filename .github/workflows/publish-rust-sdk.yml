@@ -75,19 +75,10 @@ jobs:
           echo "📝 Generating OpenAPI specification..."
           nix run .#generateRustSdk
 
-          
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Run tests
         working-directory: ip-allocator-client
         run: |
           nix develop ../ -c cargo test --verbose
-
-      - name: Run server tests (with testcontainers)
-        run: |
-          # Run server tests including testcontainers tests
-          nix develop -c cargo test --verbose
 
       - name: Build SDK in release mode
         working-directory: ip-allocator-client

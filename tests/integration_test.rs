@@ -3,9 +3,13 @@
 //! These tests use testcontainers to spin up Redis containers automatically.
 //! Docker must be installed and running to execute these tests.
 //!
-//! To run the tests:
+//! Note: These tests are marked as #[ignore] because they require Docker,
+//! which is not available in the Nix sandbox. They run separately in the
+//! integration-tests.yml GitHub Actions workflow.
+//!
+//! To run these tests locally:
 //! ```bash
-//! cargo test
+//! cargo test -- --ignored
 //! ```
 
 use rocket::local::blocking::Client;
@@ -14,6 +18,7 @@ use testcontainers::clients;
 use testcontainers_modules::redis::Redis;
 
 #[test]
+#[ignore = "requires Docker - not available in Nix sandbox"]
 fn test_borrow_returns_503_when_no_items_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -47,6 +52,7 @@ fn test_borrow_returns_503_when_no_items_available() {
 }
 
 #[test]
+#[ignore = "requires Docker - not available in Nix sandbox"]
 fn test_borrow_returns_200_when_items_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -88,6 +94,7 @@ fn test_borrow_returns_200_when_items_available() {
 }
 
 #[test]
+#[ignore = "requires Docker - not available in Nix sandbox"]
 fn test_borrow_blocking_wait_returns_item_when_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -148,6 +155,7 @@ fn test_borrow_blocking_wait_returns_item_when_available() {
 }
 
 #[test]
+#[ignore = "requires Docker - not available in Nix sandbox"]
 fn test_borrow_blocking_wait_timeout() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
