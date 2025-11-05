@@ -75,10 +75,24 @@ jobs:
           echo "📝 Generating OpenAPI specification..."
           nix run .#generateRustSdk
 
+      - name: Set up Docker
+        run: |
+          # Ensure Docker daemon is running (it should be by default on ubuntu-latest)
+          sudo systemctl start docker || true
+          # Add current user to docker group to run docker without sudo
+          sudo usermod -aG docker $USER || true
+          # Verify Docker is accessible
+          docker version
+
       - name: Run tests
         working-directory: ip-allocator-client
         run: |
           nix develop ../ -c cargo test --verbose
+
+      - name: Run server tests (with testcontainers)
+        run: |
+          # Run server tests including testcontainers tests
+          nix develop -c cargo test --verbose
 
       - name: Build SDK in release mode
         working-directory: ip-allocator-client
