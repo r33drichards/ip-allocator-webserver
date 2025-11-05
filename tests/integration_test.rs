@@ -3,9 +3,14 @@
 //! These tests use testcontainers to spin up Redis containers automatically.
 //! Docker must be installed and running to execute these tests.
 //!
-//! To run the tests:
+//! To run these tests (they are ignored by default):
 //! ```bash
-//! cargo test
+//! cargo test -- --ignored
+//! ```
+//!
+//! To run all tests including ignored ones:
+//! ```bash
+//! cargo test -- --include-ignored
 //! ```
 
 use rocket::local::blocking::Client;
@@ -14,6 +19,7 @@ use testcontainers::clients;
 use testcontainers_modules::redis::Redis;
 
 #[test]
+#[ignore = "requires Docker"]
 fn test_borrow_returns_503_when_no_items_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -47,6 +53,7 @@ fn test_borrow_returns_503_when_no_items_available() {
 }
 
 #[test]
+#[ignore = "requires Docker"]
 fn test_borrow_returns_200_when_items_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -88,6 +95,7 @@ fn test_borrow_returns_200_when_items_available() {
 }
 
 #[test]
+#[ignore = "requires Docker"]
 fn test_borrow_blocking_wait_returns_item_when_available() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
@@ -148,6 +156,7 @@ fn test_borrow_blocking_wait_returns_item_when_available() {
 }
 
 #[test]
+#[ignore = "requires Docker"]
 fn test_borrow_blocking_wait_timeout() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
