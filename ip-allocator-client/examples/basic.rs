@@ -7,7 +7,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Borrow an item from the freelist
     println!("🔄 Borrowing an item...");
-    let borrow_result = client.handlers_ip_borrow().await?;
+    // Pass None for immediate return, or Some(seconds) to wait for availability
+    // Example: client.handlers_ip_borrow(Some(30)).await? // Wait up to 30 seconds
+    let borrow_result = client.handlers_ip_borrow(None).await?;
     println!("✅ Borrowed item: {:?}", borrow_result);
 
     // Return an item to the freelist

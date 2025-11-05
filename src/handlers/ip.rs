@@ -45,14 +45,30 @@ pub struct OperationStatusOutput {
 }
 
 /// Borrow an item from the freelist
+///
+/// Optional query parameter `wait` specifies the maximum number of seconds to wait
+/// for an item to become available. If not specified, returns immediately.
+/// If specified, the request will block until an item becomes available or the timeout is reached.
 #[openapi]
-#[get("/borrow")]
+#[get("/borrow?<wait>")]
 pub async fn borrow(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
+    wait: Option<u64>,
 ) -> OResult<BorrowOutput> {
     let store = store.lock().await;
-    match store.borrow() {
+
+    // Determine whether to use blocking or non-blocking borrow
+    let result = if let Some(wait_secs) = wait {
+        // Use blocking borrow with timeout
+        use std::time::Duration;
+        store.borrow_blocking(Duration::from_secs(wait_secs))
+    } else {
+        // Use non-blocking borrow (original behavior)
+        store.borrow()
+    };
+
+    match result {
         Ok(item) => {
             if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &item).await {
                 // On subscriber failure for must-succeed, return item to freelist as rollback
