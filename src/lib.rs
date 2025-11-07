@@ -27,6 +27,13 @@ pub fn print_openapi_spec() {
         handlers::ip::return_item,
         handlers::ip::submit_item,
         handlers::ip::get_operation_status,
+        handlers::admin::list_items,
+        handlers::admin::list_borrowed,
+        handlers::admin::delete_item,
+        handlers::admin::force_return,
+        handlers::admin::list_operations,
+        handlers::admin::delete_operation,
+        handlers::admin::get_stats,
     ](&settings);
     println!("{}", serde_json::to_string_pretty(&spec).unwrap());
 }
@@ -73,12 +80,20 @@ pub fn rocket_with_config(redis_url: String, app_config: config::AppConfig) -> r
                 handlers::ip::return_item,
                 handlers::ip::submit_item,
                 handlers::ip::get_operation_status,
+                handlers::admin::list_items,
+                handlers::admin::list_borrowed,
+                handlers::admin::delete_item,
+                handlers::admin::force_return,
+                handlers::admin::list_operations,
+                handlers::admin::delete_operation,
+                handlers::admin::get_stats,
             ],
         )
         .mount(
             "/",
             routes![
                 handlers::ip::stream_operation_events,
+                handlers::admin::admin_ui,
             ],
         )
         .mount(

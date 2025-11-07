@@ -93,6 +93,16 @@ impl OperationStore {
         }
         None
     }
+
+    pub async fn get_all(&self) -> Vec<Operation> {
+        let guard = self.inner.read().await;
+        guard.values().cloned().collect()
+    }
+
+    pub async fn delete(&self, id: &str) -> bool {
+        let mut guard = self.inner.write().await;
+        guard.remove(id).is_some()
+    }
 }
 
 #[derive(Clone)]
