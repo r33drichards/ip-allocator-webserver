@@ -6,6 +6,8 @@ use std::time::Duration;
 const FREELIST_KEY: &str = "freelist";
 // Pub/Sub channel for notifying when items are returned to the freelist
 const FREELIST_NOTIFY_CHANNEL: &str = "freelist:notify";
+// Hash key for tracking borrowed items and their owners
+const BORROWED_ITEMS_KEY: &str = "borrowed_items";
 
 #[derive(Clone)]
 pub struct Store {
@@ -149,6 +151,72 @@ impl Store {
             .arg("item_returned")
             .query(&mut con)?;
 
+        Ok(())
+    }
+
+    /// Record that an item has been borrowed with a specific token
+    pub fn record_borrowed(&self, item: &Value, borrow_token: &str) -> RedisResult<()> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let item_key = serde_json::to_string(item).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "Failed to serialize JSON",
+                format!("{}", e),
+            ))
+        })?;
+
+        // Store the borrow_token in a hash map with the item as the key
+        let _: () = con.hset(BORROWED_ITEMS_KEY, item_key, borrow_token)?;
+        Ok(())
+    }
+
+    /// Verify that the borrow_token matches the one issued when the item was borrowed
+    /// Returns Ok(()) if valid, Err if token doesn't match or item not found
+    pub fn verify_borrow_token(&self, item: &Value, borrow_token: &str) -> RedisResult<()> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let item_key = serde_json::to_string(item).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "Failed to serialize JSON",
+                format!("{}", e),
+            ))
+        })?;
+
+        // Get the stored borrow_token for this item
+        let stored_token: Option<String> = con.hget(BORROWED_ITEMS_KEY, &item_key)?;
+
+        match stored_token {
+            Some(stored) if stored == borrow_token => Ok(()),
+            Some(_) => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                "Invalid borrow token: This item is currently borrowed by someone else",
+            ))),
+            None => Err(redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                "Item not found in borrowed items",
+            ))),
+        }
+    }
+
+    /// Remove the borrowed item record after successful return
+    pub fn remove_borrowed_record(&self, item: &Value) -> RedisResult<()> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let item_key = serde_json::to_string(item).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "Failed to serialize JSON",
+                format!("{}", e),
+            ))
+        })?;
+
+        // Remove the item from the borrowed_items hash
+        let _: () = con.hdel(BORROWED_ITEMS_KEY, item_key)?;
         Ok(())
     }
 }

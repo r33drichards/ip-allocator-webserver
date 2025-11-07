@@ -16,6 +16,7 @@ use serde_json::Value;
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct ReturnInput {
     item: Value,
+    borrow_token: String,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
@@ -27,6 +28,7 @@ pub struct ReturnIPOutput {
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct BorrowOutput {
     item: Value,
+    borrow_token: String,
 }
 
 // listing is intentionally removed for generic store
@@ -46,6 +48,7 @@ pub struct OperationStatusOutput {
 
 /// Borrow an item from the freelist
 ///
+/// Returns an item along with a borrow_token that must be provided when returning the item.
 /// Optional query parameter `wait` specifies the maximum number of seconds to wait
 /// for an item to become available. If not specified, returns immediately.
 /// If specified, the request will block until an item becomes available or the timeout is reached.
@@ -75,20 +78,39 @@ pub async fn borrow(
                 let _ = store.return_item(&item);
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));
             }
-            Ok(Json(BorrowOutput { item }))
+
+            // Generate a borrow token and record the borrowed item
+            let borrow_token = uuid::Uuid::new_v4().to_string();
+            if let Err(e) = store.record_borrowed(&item, &borrow_token) {
+                // Failed to record borrow - rollback by returning item to freelist
+                let _ = store.return_item(&item);
+                return Err(Error::from(e));
+            }
+
+            Ok(Json(BorrowOutput { item, borrow_token }))
         }
         Err(e) => Err(crate::error::Error::from(e)),
     }
 }
 
 /// Return an item to the freelist
+///
+/// Requires the borrow_token that was provided when the item was borrowed.
+/// This prevents accidentally returning an item currently borrowed by someone else.
 #[openapi]
 #[post("/return", data = "<input>")]
 pub async fn return_item(
-    _store: &State<Mutex<Store>>,
+    store: &State<Mutex<Store>>,
     app: &State<AppState>,
     input: Json<ReturnInput>,
 ) -> OResult<OperationRef> {
+    // Verify the borrow token before proceeding
+    let store_lock = store.lock().await;
+    if let Err(e) = store_lock.verify_borrow_token(&input.item, &input.borrow_token) {
+        return Err(Error::from(e));
+    }
+    drop(store_lock); // Release lock before spawning async task
+
     // Create operation
     let op_id = uuid::Uuid::new_v4().to_string();
     let op_id_resp = op_id.clone();
@@ -120,6 +142,8 @@ pub async fn return_item(
                 let store = Store::new(redis_url);
                 match store.return_item(&item_value) {
                     Ok(_) => {
+                        // Remove the borrowed record after successful return
+                        let _ = store.remove_borrowed_record(&item_value);
                         ops.set_status(&op_id, OperationStatus::Succeeded).await;
                         sse.notify(&op_id, serde_json::json!({"event":"completed"}).to_string()).await;
                     }

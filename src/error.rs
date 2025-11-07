@@ -68,6 +68,17 @@ impl OpenApiResponderInner for Error {
             }),
         );
         responses.insert(
+            "403".to_string(),
+            RefOr::Object(OpenApiReponse {
+                description: "\
+                # [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\n\
+                This response is given when you don't have permission to access the requested resource. \
+                For example, when trying to return an item that you don't own.\
+                ".to_string(),
+                ..Default::default()
+            }),
+        );
+        responses.insert(
             "500".to_string(),
             RefOr::Object(OpenApiReponse {
                 description: "\
@@ -143,9 +154,14 @@ impl From<redis::RedisError> for Error {
     fn from(err: redis::RedisError) -> Self {
         // Check if this is a "no items available" error (resource unavailable)
         // which should return 503 Service Unavailable instead of 500
+        // Or if it's an invalid borrow token error which should return 403 Forbidden
         let error_msg = err.to_string();
         let http_status_code = if error_msg.contains("No items available in the freelist") {
             503 // Service Unavailable - resource temporarily exhausted
+        } else if error_msg.contains("Invalid borrow token") || error_msg.contains("borrowed by someone else") {
+            403 // Forbidden - invalid token, item is borrowed by someone else
+        } else if error_msg.contains("Item not found in borrowed items") {
+            404 // Not Found - item was not borrowed or already returned
         } else {
             500 // Internal Server Error - actual Redis failures
         };

@@ -10,12 +10,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Pass None for immediate return, or Some(seconds) to wait for availability
     // Example: client.handlers_ip_borrow(Some(30)).await? // Wait up to 30 seconds
     let borrow_result = client.handlers_ip_borrow(None).await?;
-    println!("✅ Borrowed item: {:?}", borrow_result);
+    println!("✅ Borrowed item: {:?}", borrow_result.item);
+    println!("🎟️  Borrow token: {}", borrow_result.borrow_token);
 
-    // Return an item to the freelist
-    println!("\n🔄 Returning an item...");
+    // Return the borrowed item to the freelist
+    println!("\n🔄 Returning the item...");
     let return_input = ip_allocator_client::types::ReturnInput {
-        item: serde_json::json!({"ip": "192.168.1.100"}),
+        item: borrow_result.item.clone(),
+        borrow_token: borrow_result.borrow_token.clone(),
     };
     let return_result = client.handlers_ip_return_item(&return_input).await?;
     println!("✅ Return operation initiated: {:?}", return_result);
