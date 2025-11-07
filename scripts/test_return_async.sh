@@ -27,12 +27,13 @@ for i in $(seq 1 30); do
 done
 
 echo "[test] Borrowing item..."
-ITEM_JSON=$(curl -s localhost:8000/borrow)
-IP=$(printf '%s' "$ITEM_JSON" | sed -n 's/.*"ip":"\([^"]*\)".*/\1/p')
-echo "[test] Borrowed: $IP"
+BORROW_JSON=$(curl -s localhost:8000/borrow)
+IP=$(printf '%s' "$BORROW_JSON" | sed -n 's/.*"ip":"\([^"]*\)".*/\1/p')
+BORROW_TOKEN=$(printf '%s' "$BORROW_JSON" | sed -n 's/.*"borrow_token":"\([^"]*\)".*/\1/p')
+echo "[test] Borrowed: $IP (token: ${BORROW_TOKEN:0:8}...)"
 
 echo "[test] Returning item..."
-OP_JSON=$(curl -s -X POST localhost:8000/return -H 'content-type: application/json' -d "{\"item\":{\"ip\":\"$IP\"}}")
+OP_JSON=$(curl -s -X POST localhost:8000/return -H 'content-type: application/json' -d "{\"item\":{\"ip\":\"$IP\"},\"borrow_token\":\"$BORROW_TOKEN\"}")
 OP_ID=$(printf '%s' "$OP_JSON" | sed -n 's/.*"operation_id":"\([^"]*\)".*/\1/p')
 echo "[test] Operation: $OP_ID"
 
