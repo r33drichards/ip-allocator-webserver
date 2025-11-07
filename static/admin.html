@@ -573,7 +573,10 @@
                         html += `<tr>
                             <td><div class="json-viewer">${JSON.stringify(item, null, 2)}</div></td>
                             <td><code>${borrow_token}</code></td>
-                            <td><button class="btn btn-danger" onclick='forceReturn(${JSON.stringify(item)})'>Force Return</button></td>
+                            <td>
+                                <button class="btn btn-danger" onclick='forceReturn(${JSON.stringify(item)})'>Force Return</button>
+                                <button class="btn btn-danger" onclick='deleteBorrowedItem(${JSON.stringify(item)})'>Delete</button>
+                            </td>
                         </tr>`;
                     });
                     html += '</tbody></table>';
@@ -600,6 +603,27 @@
                     loadStats();
                 } else {
                     alert('Failed to force return item');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteBorrowedItem(item) {
+            if (!confirm('Permanently delete this borrowed item? This will NOT return it to the freelist.')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/borrowed`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item})
+                });
+
+                if (response.ok) {
+                    refreshBorrowed();
+                    loadStats();
+                } else {
+                    alert('Failed to delete borrowed item');
                 }
             } catch (error) {
                 alert('Error: ' + error.message);

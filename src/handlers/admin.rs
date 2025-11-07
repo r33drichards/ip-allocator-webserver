@@ -139,6 +139,29 @@ pub async fn force_return(
     }
 }
 
+/// Delete a borrowed item without returning it to the freelist (Admin)
+#[openapi(tag = "Admin")]
+#[delete("/admin/borrowed", data = "<input>")]
+pub async fn delete_borrowed_item(
+    store: &State<Mutex<Store>>,
+    input: Json<DeleteItemInput>,
+) -> OResult<SuccessResponse> {
+    let store = store.lock().await;
+    match store.delete_borrowed_item(&input.item) {
+        Ok(deleted) => {
+            if deleted {
+                Ok(Json(SuccessResponse {
+                    success: true,
+                    message: "Borrowed item deleted successfully".to_string(),
+                }))
+            } else {
+                Err(Error::new("Not Found", Some("Item not found in borrowed items"), 404))
+            }
+        }
+        Err(e) => Err(Error::from(e)),
+    }
+}
+
 /// List all operations (Admin)
 #[openapi(tag = "Admin")]
 #[get("/admin/operations")]
