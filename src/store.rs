@@ -278,4 +278,22 @@ impl Store {
         // Add back to freelist
         self.return_item(item)
     }
+
+    /// Delete a borrowed item without returning it to the freelist (for admin deletion)
+    pub fn delete_borrowed_item(&self, item: &Value) -> RedisResult<bool> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let item_key = serde_json::to_string(item).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "Failed to serialize JSON",
+                format!("{}", e),
+            ))
+        })?;
+
+        // Remove the item from the borrowed_items hash
+        let removed: i32 = con.hdel(BORROWED_ITEMS_KEY, item_key)?;
+        Ok(removed > 0)
+    }
 }
