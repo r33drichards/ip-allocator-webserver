@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Allocator - Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .stat-card h3 {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e1e8ed;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .card h2 {
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .json-viewer {
+            background: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-width: 400px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .badge-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-in-progress {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .badge-succeeded {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .badge-failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .form-group textarea,
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group textarea:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d1e7dd;
+            color: #0f5132;
+            border: 1px solid #badbcc;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #842029;
+            border: 1px solid #f5c2c7;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #7f8c8d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>IP Allocator Admin Dashboard</h1>
+        <p>Manage your item pool, borrowed items, and operations</p>
+    </div>
+
+    <div class="container">
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Available Items</h3>
+                <div class="stat-value" id="stat-total-items">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Borrowed Items</h3>
+                <div class="stat-value" id="stat-borrowed-items">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Operations</h3>
+                <div class="stat-value" id="stat-pending-ops">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Failed Operations</h3>
+                <div class="stat-value" id="stat-failed-ops">-</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="items">Available Items</button>
+            <button class="tab" data-tab="borrowed">Borrowed Items</button>
+            <button class="tab" data-tab="operations">Operations</button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="items" class="tab-content active">
+            <div class="card">
+                <h2>Available Items in Freelist</h2>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="refreshItems()">
+                        🔄 Refresh
+                    </button>
+                    <button class="btn btn-success" onclick="showAddItemModal()">
+                        ➕ Add Item
+                    </button>
+                </div>
+                <div id="items-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="borrowed" class="tab-content">
+            <div class="card">
+                <h2>Borrowed Items</h2>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="refreshBorrowed()">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="borrowed-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="operations" class="tab-content">
+            <div class="card">
+                <h2>Operations History</h2>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="refreshOperations()">
+                        🔄 Refresh
+                    </button>
+                    <button class="btn btn-danger" onclick="clearAllOperations()">
+                        🗑️ Clear All Operations
+                    </button>
+                </div>
+                <div id="operations-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="addItemModal" class="modal">
+        <div class="modal-content">
+            <h2>Add New Item</h2>
+            <div id="addItemAlert"></div>
+            <div class="form-group">
+                <label for="itemJson">Item JSON:</label>
+                <textarea id="itemJson" rows="10" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <div class="actions">
+                <button class="btn btn-success" onclick="submitItem()">Add Item</button>
+                <button class="btn btn-secondary" onclick="closeAddItemModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                tab.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+
+                // Refresh data when switching tabs
+                if (tabName === 'items') refreshItems();
+                else if (tabName === 'borrowed') refreshBorrowed();
+                else if (tabName === 'operations') refreshOperations();
+            });
+        });
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/stats`);
+                const data = await response.json();
+
+                document.getElementById('stat-total-items').textContent = data.total_items;
+                document.getElementById('stat-borrowed-items').textContent = data.borrowed_items;
+                document.getElementById('stat-pending-ops').textContent = data.pending_operations;
+                document.getElementById('stat-failed-ops').textContent = data.failed_operations;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Items management
+        async function refreshItems() {
+            const content = document.getElementById('items-content');
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/items`);
+                const data = await response.json();
+
+                if (data.count === 0) {
+                    content.innerHTML = '<div class="empty-state"><h3>No items available</h3><p>Add items using the "Add Item" button</p></div>';
+                } else {
+                    let html = '<table><thead><tr><th>Item Data</th><th>Actions</th></tr></thead><tbody>';
+                    data.items.forEach(item => {
+                        html += `<tr>
+                            <td><div class="json-viewer">${JSON.stringify(item, null, 2)}</div></td>
+                            <td><button class="btn btn-danger" onclick='deleteItem(${JSON.stringify(item)})'>Delete</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    content.innerHTML = html;
+                }
+                loadStats();
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Failed to load items: ${error.message}</div>`;
+            }
+        }
+
+        async function deleteItem(item) {
+            if (!confirm('Are you sure you want to delete this item?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/items`, {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item})
+                });
+
+                if (response.ok) {
+                    refreshItems();
+                } else {
+                    alert('Failed to delete item');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Borrowed items
+        async function refreshBorrowed() {
+            const content = document.getElementById('borrowed-content');
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/borrowed`);
+                const data = await response.json();
+
+                if (data.count === 0) {
+                    content.innerHTML = '<div class="empty-state"><h3>No borrowed items</h3><p>All items are available in the freelist</p></div>';
+                } else {
+                    let html = '<table><thead><tr><th>Item Data</th><th>Borrow Token</th><th>Actions</th></tr></thead><tbody>';
+                    data.borrowed.forEach(({item, borrow_token}) => {
+                        html += `<tr>
+                            <td><div class="json-viewer">${JSON.stringify(item, null, 2)}</div></td>
+                            <td><code>${borrow_token}</code></td>
+                            <td><button class="btn btn-danger" onclick='forceReturn(${JSON.stringify(item)})'>Force Return</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    content.innerHTML = html;
+                }
+                loadStats();
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Failed to load borrowed items: ${error.message}</div>`;
+            }
+        }
+
+        async function forceReturn(item) {
+            if (!confirm('Force return this item to the freelist?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/force-return`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item})
+                });
+
+                if (response.ok) {
+                    refreshBorrowed();
+                    loadStats();
+                } else {
+                    alert('Failed to force return item');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Operations
+        async function refreshOperations() {
+            const content = document.getElementById('operations-content');
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/operations`);
+                const data = await response.json();
+
+                if (data.count === 0) {
+                    content.innerHTML = '<div class="empty-state"><h3>No operations</h3><p>Operations will appear here when items are submitted or returned</p></div>';
+                } else {
+                    let html = '<table><thead><tr><th>Operation ID</th><th>Item</th><th>Status</th><th>Message</th><th>Actions</th></tr></thead><tbody>';
+                    data.operations.forEach(op => {
+                        const badgeClass = `badge-${op.status.toLowerCase().replace('inprogress', 'in-progress')}`;
+                        html += `<tr>
+                            <td><code>${op.id}</code></td>
+                            <td><div class="json-viewer">${JSON.stringify(op.item, null, 2)}</div></td>
+                            <td><span class="badge ${badgeClass}">${op.status}</span></td>
+                            <td>${op.message || '-'}</td>
+                            <td><button class="btn btn-danger" onclick="deleteOperation('${op.id}')">Delete</button></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    content.innerHTML = html;
+                }
+                loadStats();
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">Failed to load operations: ${error.message}</div>`;
+            }
+        }
+
+        async function deleteOperation(id) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/operations/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    refreshOperations();
+                } else {
+                    alert('Failed to delete operation');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function clearAllOperations() {
+            if (!confirm('Delete ALL operations? This cannot be undone.')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/operations`);
+                const data = await response.json();
+
+                for (const op of data.operations) {
+                    await fetch(`${API_BASE}/admin/operations/${op.id}`, {method: 'DELETE'});
+                }
+
+                refreshOperations();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Modal handling
+        function showAddItemModal() {
+            document.getElementById('addItemModal').classList.add('active');
+            document.getElementById('itemJson').value = '';
+            document.getElementById('addItemAlert').innerHTML = '';
+        }
+
+        function closeAddItemModal() {
+            document.getElementById('addItemModal').classList.remove('active');
+        }
+
+        async function submitItem() {
+            const jsonText = document.getElementById('itemJson').value;
+            const alertDiv = document.getElementById('addItemAlert');
+
+            try {
+                const item = JSON.parse(jsonText);
+
+                const response = await fetch(`${API_BASE}/submit`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({item})
+                });
+
+                if (response.ok) {
+                    alertDiv.innerHTML = '<div class="alert alert-success">Item submitted successfully! Check the Operations tab for progress.</div>';
+                    setTimeout(() => {
+                        closeAddItemModal();
+                        refreshItems();
+                    }, 1500);
+                } else {
+                    alertDiv.innerHTML = '<div class="alert alert-error">Failed to submit item</div>';
+                }
+            } catch (error) {
+                alertDiv.innerHTML = `<div class="alert alert-error">Invalid JSON: ${error.message}</div>`;
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('addItemModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                closeAddItemModal();
+            }
+        });
+
+        // Initial load
+        loadStats();
+        refreshItems();
+
+        // Auto-refresh stats every 10 seconds
+        setInterval(loadStats, 10000);
+    </script>
+</body>
+</html>

@@ -219,4 +219,63 @@ impl Store {
         let _: () = con.hdel(BORROWED_ITEMS_KEY, item_key)?;
         Ok(())
     }
+
+    /// Get all items in the freelist (for admin UI)
+    pub fn list_all_items(&self) -> RedisResult<Vec<Value>> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let raw_items: Vec<String> = con.smembers(FREELIST_KEY)?;
+
+        let mut items = Vec::new();
+        for raw in raw_items {
+            match serde_json::from_str::<Value>(&raw) {
+                Ok(item) => items.push(item),
+                Err(_) => continue, // Skip invalid JSON
+            }
+        }
+        Ok(items)
+    }
+
+    /// Get all borrowed items with their tokens (for admin UI)
+    pub fn list_borrowed_items(&self) -> RedisResult<Vec<(Value, String)>> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let raw_map: std::collections::HashMap<String, String> = con.hgetall(BORROWED_ITEMS_KEY)?;
+
+        let mut borrowed = Vec::new();
+        for (item_key, token) in raw_map {
+            match serde_json::from_str::<Value>(&item_key) {
+                Ok(item) => borrowed.push((item, token)),
+                Err(_) => continue, // Skip invalid JSON
+            }
+        }
+        Ok(borrowed)
+    }
+
+    /// Remove an item from the freelist (for admin deletion)
+    pub fn delete_item(&self, value: &Value) -> RedisResult<bool> {
+        let client = self.get_redis_client()?;
+        let mut con = client.get_connection()?;
+
+        let payload = serde_json::to_string(value).map_err(|e| {
+            redis::RedisError::from((
+                redis::ErrorKind::TypeError,
+                "Failed to serialize JSON",
+                format!("{}", e),
+            ))
+        })?;
+
+        let removed: i32 = con.srem(FREELIST_KEY, payload)?;
+        Ok(removed > 0)
+    }
+
+    /// Force return an item without token validation (for admin use)
+    pub fn force_return(&self, item: &Value) -> RedisResult<()> {
+        // Remove from borrowed items if present
+        let _ = self.remove_borrowed_record(item);
+        // Add back to freelist
+        self.return_item(item)
+    }
 }
