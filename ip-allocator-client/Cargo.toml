@@ -1,6 +1,6 @@
 [package]
 name = "ip-allocator-client"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["r33drichards"]
 description = "Rust API client for ip-allocator-webserver"
