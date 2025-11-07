@@ -25,6 +25,7 @@ pub fn print_openapi_spec() {
     let spec = rocket_okapi::openapi_spec![
         handlers::ip::borrow,
         handlers::ip::return_item,
+        handlers::ip::submit_item,
         handlers::ip::get_operation_status,
     ](&settings);
     println!("{}", serde_json::to_string_pretty(&spec).unwrap());
@@ -70,6 +71,7 @@ pub fn rocket_with_config(redis_url: String, app_config: config::AppConfig) -> r
             openapi_get_routes![
                 handlers::ip::borrow,
                 handlers::ip::return_item,
+                handlers::ip::submit_item,
                 handlers::ip::get_operation_status,
             ],
         )
