@@ -18,6 +18,11 @@ pub struct ReturnEventPayload<'a> {
     pub item: &'a Value,
 }
 
+#[derive(Debug, Serialize)]
+pub struct SubmitEventPayload<'a> {
+    pub item: &'a Value,
+}
+
 #[derive(Clone)]
 pub struct Subscribers {
     http: Client,
@@ -44,6 +49,14 @@ impl Subscribers {
         item: &Value,
     ) -> Result<(), (String, bool)> {
         self.dispatch_and_wait(&cfg.r#return.subscribers, &ReturnEventPayload { item }).await
+    }
+
+    pub async fn notify_submit(
+        &self,
+        cfg: &AppConfig,
+        item: &Value,
+    ) -> Result<(), (String, bool)> {
+        self.dispatch_and_wait(&cfg.submit.subscribers, &SubmitEventPayload { item }).await
     }
 
 }

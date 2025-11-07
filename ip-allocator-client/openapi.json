@@ -2,13 +2,25 @@
   "openapi": "3.0.0",
   "info": {
     "title": "ip-allocator-webserver",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/borrow": {
       "get": {
-        "description": "Borrow an item from the freelist",
+        "description": "Borrow an item from the freelist\n\nReturns an item along with a borrow_token that must be provided when returning the item. Optional query parameter `wait` specifies the maximum number of seconds to wait for an item to become available. If not specified, returns immediately. If specified, the request will block until an item becomes available or the timeout is reached.",
         "operationId": "handlers_ip_borrow",
+        "parameters": [
+          {
+            "name": "wait",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0,
+              "nullable": true
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -29,15 +41,21 @@
           "422": {
             "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
           },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
           "500": {
             "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
           }
         }
       }
     },
     "/return": {
       "post": {
-        "description": "Return an item to the freelist",
+        "description": "Return an item to the freelist\n\nRequires the borrow_token that was provided when the item was borrowed. This prevents accidentally returning an item currently borrowed by someone else.",
         "operationId": "handlers_ip_return_item",
         "requestBody": {
           "content": {
@@ -69,8 +87,60 @@
           "422": {
             "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
           },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
           "500": {
             "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/submit": {
+      "post": {
+        "description": "Submit an item to the freelist\n\nAdds an item to the freelist without requiring a borrow token. This allows items to be added directly to the freelist.",
+        "operationId": "handlers_ip_submit_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationRef"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
           }
         }
       }
@@ -109,8 +179,14 @@
           "422": {
             "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
           },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
           "500": {
             "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
           }
         }
       }
@@ -121,10 +197,14 @@
       "BorrowOutput": {
         "type": "object",
         "required": [
+          "borrow_token",
           "item"
         ],
         "properties": {
-          "item": {}
+          "item": {},
+          "borrow_token": {
+            "type": "string"
+          }
         }
       },
       "OperationRef": {
@@ -143,6 +223,19 @@
         }
       },
       "ReturnInput": {
+        "type": "object",
+        "required": [
+          "borrow_token",
+          "item"
+        ],
+        "properties": {
+          "item": {},
+          "borrow_token": {
+            "type": "string"
+          }
+        }
+      },
+      "SubmitInput": {
         "type": "object",
         "required": [
           "item"

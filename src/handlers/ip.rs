@@ -20,6 +20,11 @@ pub struct ReturnInput {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
+pub struct SubmitInput {
+    item: Value,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct ReturnIPOutput {
     success: bool,
     message: String,
@@ -144,6 +149,71 @@ pub async fn return_item(
                     Ok(_) => {
                         // Remove the borrowed record after successful return
                         let _ = store.remove_borrowed_record(&item_value);
+                        ops.set_status(&op_id, OperationStatus::Succeeded).await;
+                        sse.notify(&op_id, serde_json::json!({"event":"completed"}).to_string()).await;
+                    }
+                    Err(e) => {
+                        ops.update_message(&op_id, Some(e.to_string())).await;
+                        ops.set_status(&op_id, OperationStatus::Failed).await;
+                        sse.notify(&op_id, serde_json::json!({"event":"failed","reason":e.to_string()}).to_string()).await;
+                    }
+                }
+            }
+            Err((msg, _)) => {
+                ops.update_message(&op_id, Some(msg.clone())).await;
+                ops.set_status(&op_id, OperationStatus::Failed).await;
+                sse.notify(&op_id, serde_json::json!({"event":"failed","reason":msg}).to_string()).await;
+            }
+        }
+    });
+
+    Ok(Json(OperationRef { operation_id: op_id_resp, status: "accepted".to_string() }))
+}
+
+/// Submit an item to the freelist
+///
+/// Adds an item to the freelist without requiring a borrow token.
+/// This allows items to be added directly to the freelist.
+#[openapi]
+#[post("/submit", data = "<input>")]
+pub async fn submit_item(
+    _store: &State<Mutex<Store>>,
+    app: &State<AppState>,
+    input: Json<SubmitInput>,
+) -> OResult<OperationRef> {
+    // No borrow token verification needed - direct submission
+
+    // Create operation
+    let op_id = uuid::Uuid::new_v4().to_string();
+    let op_id_resp = op_id.clone();
+    let item_value = input.item.clone();
+    let subs = app.subs.clone();
+    let ops = app.ops.clone();
+    let sse = app.sse.clone();
+    let cfg = app.config.clone();
+    let redis_url = app.redis_url.clone();
+
+    // Spawn workflow in background
+    tokio::spawn(async move {
+        use std::collections::HashSet;
+        // identify must-succeed subscribers
+        let mut must: HashSet<String> = HashSet::new();
+        for (name, def) in &cfg.submit.subscribers {
+            if def.mustSuceed {
+                must.insert(name.clone());
+            }
+        }
+        let _ = ops.create(op_id.clone(), item_value.clone(), must).await;
+        sse.notify(&op_id, serde_json::json!({"event":"created"}).to_string()).await;
+
+        // Run notifications sequentially respecting must-succeed
+        match subs.notify_submit(&cfg, &item_value).await {
+            Ok(()) => {
+                ops.set_status(&op_id, OperationStatus::InProgress).await;
+                sse.notify(&op_id, serde_json::json!({"event":"notifications_ok"}).to_string()).await;
+                let store = Store::new(redis_url);
+                match store.return_item(&item_value) {
+                    Ok(_) => {
                         ops.set_status(&op_id, OperationStatus::Succeeded).await;
                         sse.notify(&op_id, serde_json::json!({"event":"completed"}).to_string()).await;
                     }

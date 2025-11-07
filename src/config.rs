@@ -23,6 +23,8 @@ pub struct AppConfig {
     pub borrow: OperationSubscribers,
     #[serde(default)]
     pub r#return: OperationSubscribers,
+    #[serde(default)]
+    pub submit: OperationSubscribers,
 }
 
 impl AppConfig {
