@@ -94,6 +94,7 @@ pub fn rocket_with_config(redis_url: String, app_config: config::AppConfig) -> r
             routes![
                 handlers::ip::stream_operation_events,
                 handlers::admin::admin_ui,
+                handlers::admin::admin_favicon,
             ],
         )
         .mount(

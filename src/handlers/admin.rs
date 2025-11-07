@@ -201,3 +201,9 @@ pub async fn get_stats(store: &State<Mutex<Store>>, app: &State<AppState>) -> OR
 pub async fn admin_ui() -> RawHtml<&'static str> {
     RawHtml(include_str!("../../static/admin.html"))
 }
+
+/// Serve the admin favicon SVG
+#[get("/static/admin-favicon.svg")]
+pub async fn admin_favicon() -> (rocket::http::ContentType, &'static str) {
+    (rocket::http::ContentType::SVG, include_str!("../../static/admin-favicon.svg"))
+}
