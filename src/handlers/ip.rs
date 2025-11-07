@@ -9,6 +9,7 @@ use crate::error::{Error, OResult};
 use crate::AppState;
 use crate::store::Store;
 use crate::ops::OperationStatus;
+use crate::guards::owner_id::OwnerId;
 use rocket::response::stream::{Event, EventStream};
 use rocket::tokio::time::{interval, Duration};
 use serde_json::Value;
@@ -46,6 +47,7 @@ pub struct OperationStatusOutput {
 
 /// Borrow an item from the freelist
 ///
+/// Requires X-Owner-Id header to identify the borrower.
 /// Optional query parameter `wait` specifies the maximum number of seconds to wait
 /// for an item to become available. If not specified, returns immediately.
 /// If specified, the request will block until an item becomes available or the timeout is reached.
@@ -54,6 +56,7 @@ pub struct OperationStatusOutput {
 pub async fn borrow(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
+    owner_id: OwnerId,
     wait: Option<u64>,
 ) -> OResult<BorrowOutput> {
     let store = store.lock().await;
@@ -75,6 +78,14 @@ pub async fn borrow(
                 let _ = store.return_item(&item);
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));
             }
+
+            // Record the borrowed item with the owner_id
+            if let Err(e) = store.record_borrowed(&item, &owner_id.0) {
+                // Failed to record ownership - rollback by returning item to freelist
+                let _ = store.return_item(&item);
+                return Err(Error::from(e));
+            }
+
             Ok(Json(BorrowOutput { item }))
         }
         Err(e) => Err(crate::error::Error::from(e)),
@@ -82,13 +93,24 @@ pub async fn borrow(
 }
 
 /// Return an item to the freelist
+///
+/// Requires X-Owner-Id header to verify ownership.
+/// Only the owner who borrowed the item can return it.
 #[openapi]
 #[post("/return", data = "<input>")]
 pub async fn return_item(
-    _store: &State<Mutex<Store>>,
+    store: &State<Mutex<Store>>,
     app: &State<AppState>,
+    owner_id: OwnerId,
     input: Json<ReturnInput>,
 ) -> OResult<OperationRef> {
+    // Verify ownership before proceeding
+    let store_lock = store.lock().await;
+    if let Err(e) = store_lock.verify_owner(&input.item, &owner_id.0) {
+        return Err(Error::from(e));
+    }
+    drop(store_lock); // Release lock before spawning async task
+
     // Create operation
     let op_id = uuid::Uuid::new_v4().to_string();
     let op_id_resp = op_id.clone();
@@ -120,6 +142,8 @@ pub async fn return_item(
                 let store = Store::new(redis_url);
                 match store.return_item(&item_value) {
                     Ok(_) => {
+                        // Remove the borrowed record after successful return
+                        let _ = store.remove_borrowed_record(&item_value);
                         ops.set_status(&op_id, OperationStatus::Succeeded).await;
                         sse.notify(&op_id, serde_json::json!({"event":"completed"}).to_string()).await;
                     }
