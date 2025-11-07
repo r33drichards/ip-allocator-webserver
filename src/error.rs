@@ -154,12 +154,12 @@ impl From<redis::RedisError> for Error {
     fn from(err: redis::RedisError) -> Self {
         // Check if this is a "no items available" error (resource unavailable)
         // which should return 503 Service Unavailable instead of 500
-        // Or if it's an authorization error which should return 403 Forbidden
+        // Or if it's an invalid borrow token error which should return 403 Forbidden
         let error_msg = err.to_string();
         let http_status_code = if error_msg.contains("No items available in the freelist") {
             503 // Service Unavailable - resource temporarily exhausted
-        } else if error_msg.contains("Unauthorized") || error_msg.contains("owned by a different owner") {
-            403 // Forbidden - authorization failure
+        } else if error_msg.contains("Invalid borrow token") || error_msg.contains("borrowed by someone else") {
+            403 // Forbidden - invalid token, item is borrowed by someone else
         } else if error_msg.contains("Item not found in borrowed items") {
             404 // Not Found - item was not borrowed or already returned
         } else {

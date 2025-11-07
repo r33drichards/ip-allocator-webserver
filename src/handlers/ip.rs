@@ -9,7 +9,6 @@ use crate::error::{Error, OResult};
 use crate::AppState;
 use crate::store::Store;
 use crate::ops::OperationStatus;
-use crate::guards::owner_id::OwnerId;
 use rocket::response::stream::{Event, EventStream};
 use rocket::tokio::time::{interval, Duration};
 use serde_json::Value;
@@ -17,6 +16,7 @@ use serde_json::Value;
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct ReturnInput {
     item: Value,
+    borrow_token: String,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
@@ -28,6 +28,7 @@ pub struct ReturnIPOutput {
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct BorrowOutput {
     item: Value,
+    borrow_token: String,
 }
 
 // listing is intentionally removed for generic store
@@ -47,7 +48,7 @@ pub struct OperationStatusOutput {
 
 /// Borrow an item from the freelist
 ///
-/// Requires X-Owner-Id header to identify the borrower.
+/// Returns an item along with a borrow_token that must be provided when returning the item.
 /// Optional query parameter `wait` specifies the maximum number of seconds to wait
 /// for an item to become available. If not specified, returns immediately.
 /// If specified, the request will block until an item becomes available or the timeout is reached.
@@ -56,7 +57,6 @@ pub struct OperationStatusOutput {
 pub async fn borrow(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
-    owner_id: OwnerId,
     wait: Option<u64>,
 ) -> OResult<BorrowOutput> {
     let store = store.lock().await;
@@ -79,14 +79,15 @@ pub async fn borrow(
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));
             }
 
-            // Record the borrowed item with the owner_id
-            if let Err(e) = store.record_borrowed(&item, &owner_id.0) {
-                // Failed to record ownership - rollback by returning item to freelist
+            // Generate a borrow token and record the borrowed item
+            let borrow_token = uuid::Uuid::new_v4().to_string();
+            if let Err(e) = store.record_borrowed(&item, &borrow_token) {
+                // Failed to record borrow - rollback by returning item to freelist
                 let _ = store.return_item(&item);
                 return Err(Error::from(e));
             }
 
-            Ok(Json(BorrowOutput { item }))
+            Ok(Json(BorrowOutput { item, borrow_token }))
         }
         Err(e) => Err(crate::error::Error::from(e)),
     }
@@ -94,19 +95,18 @@ pub async fn borrow(
 
 /// Return an item to the freelist
 ///
-/// Requires X-Owner-Id header to verify ownership.
-/// Only the owner who borrowed the item can return it.
+/// Requires the borrow_token that was provided when the item was borrowed.
+/// This prevents accidentally returning an item currently borrowed by someone else.
 #[openapi]
 #[post("/return", data = "<input>")]
 pub async fn return_item(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
-    owner_id: OwnerId,
     input: Json<ReturnInput>,
 ) -> OResult<OperationRef> {
-    // Verify ownership before proceeding
+    // Verify the borrow token before proceeding
     let store_lock = store.lock().await;
-    if let Err(e) = store_lock.verify_owner(&input.item, &owner_id.0) {
+    if let Err(e) = store_lock.verify_borrow_token(&input.item, &input.borrow_token) {
         return Err(Error::from(e));
     }
     drop(store_lock); // Release lock before spawning async task

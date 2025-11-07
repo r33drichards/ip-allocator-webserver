@@ -154,8 +154,8 @@ impl Store {
         Ok(())
     }
 
-    /// Record that an item has been borrowed by a specific owner
-    pub fn record_borrowed(&self, item: &Value, owner_id: &str) -> RedisResult<()> {
+    /// Record that an item has been borrowed with a specific token
+    pub fn record_borrowed(&self, item: &Value, borrow_token: &str) -> RedisResult<()> {
         let client = self.get_redis_client()?;
         let mut con = client.get_connection()?;
 
@@ -167,14 +167,14 @@ impl Store {
             ))
         })?;
 
-        // Store the owner_id in a hash map with the item as the key
-        let _: () = con.hset(BORROWED_ITEMS_KEY, item_key, owner_id)?;
+        // Store the borrow_token in a hash map with the item as the key
+        let _: () = con.hset(BORROWED_ITEMS_KEY, item_key, borrow_token)?;
         Ok(())
     }
 
-    /// Verify that the owner_id matches the one who borrowed the item
-    /// Returns Ok(()) if authorized, Err if not authorized or item not found
-    pub fn verify_owner(&self, item: &Value, owner_id: &str) -> RedisResult<()> {
+    /// Verify that the borrow_token matches the one issued when the item was borrowed
+    /// Returns Ok(()) if valid, Err if token doesn't match or item not found
+    pub fn verify_borrow_token(&self, item: &Value, borrow_token: &str) -> RedisResult<()> {
         let client = self.get_redis_client()?;
         let mut con = client.get_connection()?;
 
@@ -186,14 +186,14 @@ impl Store {
             ))
         })?;
 
-        // Get the stored owner_id for this item
-        let stored_owner: Option<String> = con.hget(BORROWED_ITEMS_KEY, &item_key)?;
+        // Get the stored borrow_token for this item
+        let stored_token: Option<String> = con.hget(BORROWED_ITEMS_KEY, &item_key)?;
 
-        match stored_owner {
-            Some(stored) if stored == owner_id => Ok(()),
+        match stored_token {
+            Some(stored) if stored == borrow_token => Ok(()),
             Some(_) => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
-                "Unauthorized: Item is owned by a different owner",
+                "Invalid borrow token: This item is currently borrowed by someone else",
             ))),
             None => Err(redis::RedisError::from((
                 redis::ErrorKind::ResponseError,
