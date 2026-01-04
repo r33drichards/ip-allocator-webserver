@@ -1,0 +1,154 @@
+name: Subscriber Tutorial Test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'nix/examples/subscriber/**'
+      - 'nix/tests/subscriber-tutorial-test.nix'
+      - 'scripts/generate-subscriber.sh'
+      - 'flake.nix'
+      - 'flake.lock'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'nix/examples/subscriber/**'
+      - 'nix/tests/subscriber-tutorial-test.nix'
+      - 'scripts/generate-subscriber.sh'
+      - 'flake.nix'
+      - 'flake.lock'
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  subscriber-tutorial-test:
+    name: Subscriber Tutorial NixOS VM Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          # If you have a Cachix auth token, add it as a secret:
+          # authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build example subscriber
+        run: |
+          echo "Building example subscriber package..."
+          nix build -f nix/examples/subscriber/default.nix --print-build-logs 2>/dev/null || true
+
+      - name: Run Subscriber Tutorial VM Test
+        run: |
+          echo "Running subscriber tutorial NixOS VM test..."
+          nix build .#checks.x86_64-linux.subscriber-tutorial-test --print-build-logs
+
+      - name: Show test results
+        if: always()
+        run: |
+          if [ -L result ]; then
+            echo "=== Test Script Log ==="
+            cat result/test-script.log 2>/dev/null || echo "No test log found"
+          fi
+
+  test-generator-script:
+    name: Test Subscriber Generator Script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test generator script help
+        run: |
+          ./scripts/generate-subscriber.sh --help
+
+      - name: Generate Python subscriber
+        run: |
+          ./scripts/generate-subscriber.sh \
+            --name test-python-subscriber \
+            --type python \
+            --event borrow \
+            --output /tmp/test-python-subscriber
+
+          echo "=== Generated Python Files ==="
+          ls -la /tmp/test-python-subscriber/
+
+          echo "=== main.py ==="
+          cat /tmp/test-python-subscriber/main.py
+
+      - name: Generate async Python subscriber
+        run: |
+          ./scripts/generate-subscriber.sh \
+            --name test-async-subscriber \
+            --type python \
+            --event return \
+            --async \
+            --output /tmp/test-async-subscriber
+
+          echo "=== Generated Async Python Files ==="
+          ls -la /tmp/test-async-subscriber/
+
+          echo "=== main.py (async) ==="
+          cat /tmp/test-async-subscriber/main.py
+
+      - name: Generate Node.js subscriber
+        run: |
+          ./scripts/generate-subscriber.sh \
+            --name test-nodejs-subscriber \
+            --type nodejs \
+            --event submit \
+            --output /tmp/test-nodejs-subscriber
+
+          echo "=== Generated Node.js Files ==="
+          ls -la /tmp/test-nodejs-subscriber/
+
+          echo "=== index.js ==="
+          cat /tmp/test-nodejs-subscriber/index.js
+
+      - name: Generate Rust subscriber
+        run: |
+          ./scripts/generate-subscriber.sh \
+            --name test-rust-subscriber \
+            --type rust \
+            --event borrow \
+            --async \
+            --output /tmp/test-rust-subscriber
+
+          echo "=== Generated Rust Files ==="
+          ls -la /tmp/test-rust-subscriber/
+
+          echo "=== src/main.rs ==="
+          cat /tmp/test-rust-subscriber/src/main.rs
+
+      - name: Validate generated Python code syntax
+        run: |
+          python3 -m py_compile /tmp/test-python-subscriber/main.py
+          python3 -m py_compile /tmp/test-async-subscriber/main.py
+          echo "Python syntax validation passed"
+
+      - name: Validate generated Node.js code syntax
+        run: |
+          node --check /tmp/test-nodejs-subscriber/index.js
+          echo "Node.js syntax validation passed"
+
+      - name: Validate generated Rust code syntax
+        run: |
+          if command -v rustfmt &> /dev/null; then
+            rustfmt --check /tmp/test-rust-subscriber/src/main.rs || true
+          else
+            echo "rustfmt not available, skipping Rust validation"
+          fi

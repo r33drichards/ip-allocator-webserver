@@ -172,6 +172,9 @@
           checks.vm-test = import ./nix/tests/vm-test.nix {
             inherit pkgs self;
           };
+          checks.subscriber-tutorial-test = import ./nix/tests/subscriber-tutorial-test.nix {
+            inherit pkgs self;
+          };
         } else {})
       );
     in
