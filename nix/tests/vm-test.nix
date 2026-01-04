@@ -135,7 +135,7 @@ pkgs.testers.nixosTest {
 
     # Test 9: Admin UI is accessible
     with subtest("Admin UI is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin/ui")
+        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 10: Swagger UI is accessible
