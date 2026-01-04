@@ -1,0 +1,45 @@
+name: NixOS VM Test
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  nixos-vm-test:
+    name: NixOS VM Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: nix-community
+          # If you have a Cachix auth token, add it as a secret:
+          # authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Check flake
+        run: nix flake check --print-build-logs
+
+      - name: Run NixOS VM test
+        run: |
+          nix build .#checks.x86_64-linux.vm-test --print-build-logs
+
+      - name: Show test results
+        if: always()
+        run: |
+          if [ -L result ]; then
+            cat result/test-script.log 2>/dev/null || echo "No test log found"
+          fi

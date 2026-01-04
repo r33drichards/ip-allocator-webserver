@@ -287,3 +287,34 @@ See the `examples/` directory for complete configuration examples:
 1. Verify subscriber URLs are reachable from the server
 2. Check service logs for webhook errors
 3. Test webhooks manually with curl
+
+## Running the NixOS VM Test
+
+The flake includes a NixOS VM test that verifies the module works correctly.
+
+### Run locally
+
+```bash
+# Run all flake checks (includes VM test)
+nix flake check
+
+# Build and run just the VM test
+nix build .#checks.x86_64-linux.vm-test --print-build-logs
+```
+
+### What the test covers
+
+The VM test verifies:
+
+1. Redis and ip-allocator-webserver start correctly
+2. Admin stats endpoint works
+3. Submit items to the pool
+4. Borrow items from the pool
+5. Return borrowed items
+6. Admin UI is accessible
+7. Swagger UI and RapiDoc are accessible
+
+### CI Integration
+
+The VM test runs automatically on every push and pull request via GitHub Actions.
+See `.github/workflows/nixos-test.yml` for the workflow configuration.

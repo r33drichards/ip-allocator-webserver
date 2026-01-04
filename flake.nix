@@ -167,7 +167,12 @@
             type = "app";
             program = "${generateRustSdkScript}/bin/generate-rust-sdk";
           };
-        }
+        } // (if pkgs.stdenv.isLinux then {
+          # NixOS VM tests (Linux only)
+          checks.vm-test = import ./nix/tests/vm-test.nix {
+            inherit pkgs self;
+          };
+        } else {})
       );
     in
     # Merge system-independent and per-system outputs
