@@ -94,13 +94,13 @@ pkgs.testers.nixosTest {
         result = server.succeed("curl -s http://localhost:8000/borrow")
         borrow_response = json.loads(result)
         assert "item" in borrow_response, f"Expected 'item' in response, got: {borrow_response}"
-        assert "token" in borrow_response, f"Expected 'token' in response, got: {borrow_response}"
+        assert "borrow_token" in borrow_response, f"Expected 'borrow_token' in response, got: {borrow_response}"
         assert borrow_response["item"] == "192.168.1.100", f"Wrong item: {borrow_response['item']}"
         print(f"Borrow result: {borrow_response}")
 
     # Store token for return
     borrowed_item = borrow_response["item"]
-    borrow_token = borrow_response["token"]
+    borrow_token = borrow_response["borrow_token"]
 
     # Test 5: Verify item is now borrowed
     with subtest("Verify item is borrowed"):
@@ -121,7 +121,7 @@ pkgs.testers.nixosTest {
         result = server.succeed(
             f"curl -s -X POST http://localhost:8000/return "
             f"-H 'Content-Type: application/json' "
-            f"-d '{{\"item\": \"{borrowed_item}\", \"token\": \"{borrow_token}\"}}'"
+            f"-d '{{\"item\": \"{borrowed_item}\", \"borrow_token\": \"{borrow_token}\"}}'"
         )
         print(f"Return result: {result}")
 
@@ -135,17 +135,17 @@ pkgs.testers.nixosTest {
 
     # Test 9: Admin UI is accessible
     with subtest("Admin UI is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin/ui")
+        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/admin")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 10: Swagger UI is accessible
     with subtest("Swagger UI is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/swagger-ui/")
+        result = server.succeed("curl -s -L -o /dev/null -w '%{http_code}' http://localhost:8000/swagger-ui/")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 11: RapiDoc is accessible
     with subtest("RapiDoc is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/rapidoc/")
+        result = server.succeed("curl -s -L -o /dev/null -w '%{http_code}' http://localhost:8000/rapidoc/")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 12: Submit multiple items and verify
