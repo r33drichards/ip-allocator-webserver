@@ -7,7 +7,7 @@
   "paths": {
     "/borrow": {
       "get": {
-        "description": "Borrow an item from the freelist\n\nReturns an item along with a borrow_token that must be provided when returning the item. Optional query parameter `wait` specifies the maximum number of seconds to wait for an item to become available. If not specified, returns immediately. If specified, the request will block until an item becomes available or the timeout is reached.",
+        "description": "Borrow an item from the freelist\n\nReturns an item along with a borrow_token that must be provided when returning the item. Optional query parameter `wait` specifies the maximum number of seconds to wait for an item to become available. If not specified, returns immediately. If specified, the request will block until an item becomes available or the timeout is reached. Optional query parameter `params` accepts a JSON string that will be passed to subscribers.",
         "operationId": "handlers_ip_borrow",
         "parameters": [
           {
@@ -17,6 +17,14 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0,
+              "nullable": true
+            }
+          },
+          {
+            "name": "params",
+            "in": "query",
+            "schema": {
+              "type": "string",
               "nullable": true
             }
           }
@@ -55,7 +63,7 @@
     },
     "/return": {
       "post": {
-        "description": "Return an item to the freelist\n\nRequires the borrow_token that was provided when the item was borrowed. This prevents accidentally returning an item currently borrowed by someone else.",
+        "description": "Return an item to the freelist\n\nRequires the borrow_token that was provided when the item was borrowed. This prevents accidentally returning an item currently borrowed by someone else. Optional `params` field accepts a JSON object that will be passed to return subscribers.",
         "operationId": "handlers_ip_return_item",
         "requestBody": {
           "content": {
@@ -190,6 +198,354 @@
           }
         }
       }
+    },
+    "/admin/items": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "List all items in the freelist (Admin)",
+        "operationId": "handlers_admin_list_items",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemsList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "Delete an item from the freelist (Admin)",
+        "operationId": "handlers_admin_delete_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteItemInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/admin/borrowed": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "List all borrowed items (Admin)",
+        "operationId": "handlers_admin_list_borrowed",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BorrowedItemsList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "Delete a borrowed item without returning it to the freelist (Admin)",
+        "operationId": "handlers_admin_delete_borrowed_item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteItemInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/admin/force-return": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "Force return a borrowed item (Admin)",
+        "operationId": "handlers_admin_force_return",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForceReturnInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/admin/operations": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "List all operations (Admin)",
+        "operationId": "handlers_admin_list_operations",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/admin/operations/{id}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "Delete an operation (Admin)",
+        "operationId": "handlers_admin_delete_operation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "description": "Get system statistics (Admin)",
+        "operationId": "handlers_admin_get_stats",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "# [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\nThe request given is wrongly formatted or data asked could not be fulfilled. "
+          },
+          "404": {
+            "description": "# [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\nThis response is given when you request a page that does not exists."
+          },
+          "422": {
+            "description": "# [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\nThis response is given when you request body is not correctly formatted. "
+          },
+          "403": {
+            "description": "# [403 Forbidden](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403)\nThis response is given when you don't have permission to access the requested resource. For example, when trying to return an item that you don't own."
+          },
+          "500": {
+            "description": "# [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\nThis response is given when something wend wrong on the server. "
+          },
+          "503": {
+            "description": "# [503 Service Unavailable](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503)\nThis response is given when the requested resource is temporarily unavailable. For example, when trying to borrow an IP but none are currently available in the freelist. Clients should retry after a delay."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -232,6 +588,9 @@
           "item": {},
           "borrow_token": {
             "type": "string"
+          },
+          "params": {
+            "nullable": true
           }
         }
       },
@@ -260,6 +619,162 @@
           "message": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "ItemsList": {
+        "type": "object",
+        "required": [
+          "count",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {}
+          },
+          "count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          }
+        }
+      },
+      "BorrowedItemsList": {
+        "type": "object",
+        "required": [
+          "borrowed",
+          "count"
+        ],
+        "properties": {
+          "borrowed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BorrowedItem"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          }
+        }
+      },
+      "BorrowedItem": {
+        "type": "object",
+        "required": [
+          "borrow_token",
+          "item"
+        ],
+        "properties": {
+          "item": {},
+          "borrow_token": {
+            "type": "string"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "required": [
+          "message",
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "DeleteItemInput": {
+        "type": "object",
+        "required": [
+          "item"
+        ],
+        "properties": {
+          "item": {}
+        }
+      },
+      "ForceReturnInput": {
+        "type": "object",
+        "required": [
+          "item"
+        ],
+        "properties": {
+          "item": {}
+        }
+      },
+      "OperationsList": {
+        "type": "object",
+        "required": [
+          "count",
+          "operations"
+        ],
+        "properties": {
+          "operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationDetail"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          }
+        }
+      },
+      "OperationDetail": {
+        "type": "object",
+        "required": [
+          "id",
+          "item",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "item": {},
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "StatsResponse": {
+        "type": "object",
+        "required": [
+          "borrowed_count",
+          "failed_operations",
+          "free_count",
+          "pending_operations"
+        ],
+        "properties": {
+          "free_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "borrowed_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "pending_operations": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "failed_operations": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
           }
         }
       }
