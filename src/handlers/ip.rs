@@ -57,13 +57,26 @@ pub struct OperationStatusOutput {
 /// Optional query parameter `wait` specifies the maximum number of seconds to wait
 /// for an item to become available. If not specified, returns immediately.
 /// If specified, the request will block until an item becomes available or the timeout is reached.
+/// Optional query parameter `params` accepts a JSON string that will be passed to subscribers.
 #[openapi]
-#[get("/borrow?<wait>")]
+#[get("/borrow?<wait>&<params>")]
 pub async fn borrow(
     store: &State<Mutex<Store>>,
     app: &State<AppState>,
     wait: Option<u64>,
+    params: Option<String>,
 ) -> OResult<BorrowOutput> {
+    // Parse params JSON string if provided
+    let params_value: Option<Value> = match &params {
+        Some(p) => {
+            match serde_json::from_str(p) {
+                Ok(v) => Some(v),
+                Err(e) => return Err(Error::new("Invalid params", Some(&format!("Failed to parse params JSON: {}", e)), 400)),
+            }
+        }
+        None => None,
+    };
+
     let store = store.lock().await;
 
     // Determine whether to use blocking or non-blocking borrow
@@ -78,7 +91,7 @@ pub async fn borrow(
 
     match result {
         Ok(item) => {
-            if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &item).await {
+            if let Err((msg, _must)) = app.subs.notify_borrow(&app.config, &item, params_value.as_ref()).await {
                 // On subscriber failure for must-succeed, return item to freelist as rollback
                 let _ = store.return_item(&item);
                 return Err(Error::new("Subscriber Error", Some(&msg), 502));
