@@ -195,7 +195,6 @@ fn test_borrow_blocking_wait_timeout() {
 }
 
 #[test]
-#[ignore = "requires Docker - not available in Nix sandbox"]
 fn test_return_accepts_params_field() {
     // Start a Redis container using testcontainers
     let docker = clients::Cli::default();
