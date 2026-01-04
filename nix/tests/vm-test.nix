@@ -33,7 +33,7 @@ pkgs.testers.nixosTest {
       port = 6379;
       bind = "127.0.0.1";
       settings = {
-        save = "900 1 300 10 60 10000";
+        save = ["900 1" "300 10" "60 10000"];
         appendonly = "yes";
         appendfsync = "everysec";
       };
