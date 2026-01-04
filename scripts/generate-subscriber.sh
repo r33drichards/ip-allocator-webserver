@@ -149,20 +149,7 @@ echo ""
 # Create directory structure
 mkdir -p "$OUTPUT_DIR"
 
-# Generate based on type
-case $PROJECT_TYPE in
-    python)
-        generate_python_project
-        ;;
-    nodejs)
-        generate_nodejs_project
-        ;;
-    rust)
-        generate_rust_project
-        ;;
-esac
-
-# Function definitions (placed here so they can access variables)
+# Function definitions
 generate_python_project() {
     log_info "Generating Python (FastAPI) project..."
 
