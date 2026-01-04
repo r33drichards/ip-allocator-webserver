@@ -18,6 +18,8 @@ pub struct BorrowEventPayload<'a> {
 #[derive(Debug, Serialize)]
 pub struct ReturnEventPayload<'a> {
     pub item: &'a Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub params: Option<&'a Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,8 +52,9 @@ impl Subscribers {
         &self,
         cfg: &AppConfig,
         item: &Value,
+        params: Option<&Value>,
     ) -> Result<(), (String, bool)> {
-        self.dispatch_and_wait(&cfg.r#return.subscribers, &ReturnEventPayload { item }).await
+        self.dispatch_and_wait(&cfg.r#return.subscribers, &ReturnEventPayload { item, params }).await
     }
 
     pub async fn notify_submit(

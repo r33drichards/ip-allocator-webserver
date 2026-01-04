@@ -17,6 +17,8 @@ use serde_json::Value;
 pub struct ReturnInput {
     item: Value,
     borrow_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
@@ -115,6 +117,7 @@ pub async fn borrow(
 ///
 /// Requires the borrow_token that was provided when the item was borrowed.
 /// This prevents accidentally returning an item currently borrowed by someone else.
+/// Optional `params` field accepts a JSON object that will be passed to return subscribers.
 #[openapi]
 #[post("/return", data = "<input>")]
 pub async fn return_item(
@@ -133,6 +136,7 @@ pub async fn return_item(
     let op_id = uuid::Uuid::new_v4().to_string();
     let op_id_resp = op_id.clone();
     let item_value = input.item.clone();
+    let params_value = input.params.clone();
     let subs = app.subs.clone();
     let ops = app.ops.clone();
     let sse = app.sse.clone();
@@ -153,7 +157,7 @@ pub async fn return_item(
         sse.notify(&op_id, serde_json::json!({"event":"created"}).to_string()).await;
 
         // Run notifications sequentially respecting must-succeed
-        match subs.notify_return(&cfg, &item_value).await {
+        match subs.notify_return(&cfg, &item_value, params_value.as_ref()).await {
             Ok(()) => {
                 ops.set_status(&op_id, OperationStatus::InProgress).await;
                 sse.notify(&op_id, serde_json::json!({"event":"notifications_ok"}).to_string()).await;

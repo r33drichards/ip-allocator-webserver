@@ -193,3 +193,67 @@ fn test_borrow_blocking_wait_timeout() {
     let body = response.into_string().expect("Response body");
     assert!(body.contains("No items available in the freelist"));
 }
+
+#[test]
+#[ignore = "requires Docker - not available in Nix sandbox"]
+fn test_return_accepts_params_field() {
+    // Start a Redis container using testcontainers
+    let docker = clients::Cli::default();
+    let redis_container = docker.run(Redis::default());
+    let redis_port = redis_container.get_host_port_ipv4(6379);
+    let redis_url = format!("redis://127.0.0.1:{}", redis_port);
+
+    // Create a Redis client and add an item to the freelist
+    let client = redis::Client::open(redis_url.clone()).expect("Failed to connect to Redis");
+    let mut con = client.get_connection().expect("Failed to get Redis connection");
+
+    // Clear the freelist first
+    let _: () = redis::cmd("DEL")
+        .arg("freelist")
+        .query(&mut con)
+        .expect("Failed to clear freelist");
+
+    // Add a test item to the freelist
+    let test_item = r#"{"ip":"192.168.1.1","port":8080}"#;
+    let _: () = redis::cmd("SADD")
+        .arg("freelist")
+        .arg(test_item)
+        .query(&mut con)
+        .expect("Failed to add item to freelist");
+
+    // Build the Rocket app
+    let rocket = ip_allocator_webserver::rocket(redis_url);
+    let test_client = rocket::local::blocking::Client::tracked(rocket).expect("valid rocket instance");
+
+    // Borrow an item first
+    let borrow_response = test_client.get("/borrow").dispatch();
+    assert_eq!(borrow_response.status(), rocket::http::Status::Ok);
+    
+    let borrow_body = borrow_response.into_string().expect("Response body");
+    let borrow_json: serde_json::Value = serde_json::from_str(&borrow_body).expect("Valid JSON");
+    let borrow_token = borrow_json["borrow_token"].as_str().expect("borrow_token field");
+
+    // Return the item with params
+    let return_payload = serde_json::json!({
+        "item": {"ip": "192.168.1.1", "port": 8080},
+        "borrow_token": borrow_token,
+        "params": {
+            "reason": "maintenance_complete",
+            "user_id": "123"
+        }
+    });
+
+    let return_response = test_client
+        .post("/return")
+        .header(rocket::http::ContentType::JSON)
+        .body(return_payload.to_string())
+        .dispatch();
+
+    // Should return 200 OK
+    assert_eq!(return_response.status(), rocket::http::Status::Ok);
+
+    // Check that the response contains operation_id
+    let return_body = return_response.into_string().expect("Response body");
+    assert!(return_body.contains("operation_id"));
+    assert!(return_body.contains("accepted"));
+}
