@@ -140,12 +140,12 @@ pkgs.testers.nixosTest {
 
     # Test 10: Swagger UI is accessible
     with subtest("Swagger UI is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/swagger-ui/")
+        result = server.succeed("curl -s -L -o /dev/null -w '%{http_code}' http://localhost:8000/swagger-ui/")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 11: RapiDoc is accessible
     with subtest("RapiDoc is accessible"):
-        result = server.succeed("curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/rapidoc/")
+        result = server.succeed("curl -s -L -o /dev/null -w '%{http_code}' http://localhost:8000/rapidoc/")
         assert result.strip() == "200", f"Expected 200, got: {result}"
 
     # Test 12: Submit multiple items and verify
