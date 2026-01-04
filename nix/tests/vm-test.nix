@@ -10,7 +10,7 @@
 
 { pkgs, self, ... }:
 
-pkgs.nixosTest {
+pkgs.testers.nixosTest {
   name = "ip-allocator-webserver";
 
   nodes.server = { config, pkgs, ... }: {
