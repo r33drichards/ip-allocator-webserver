@@ -207,13 +207,66 @@ journalctl -u ip-allocator-webserver -f
 curl http://localhost:8000/admin/stats
 ```
 
+## Redis with Persistence
+
+For production use, configure Redis with persistence to survive reboots:
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  services.ip-allocator-webserver = {
+    enable = true;
+    package = pkgs.ip-allocator-webserver;
+    redisUrl = "redis://127.0.0.1:6379/";
+  };
+
+  # Redis with persistence (data stored in /var/lib/redis-ip-allocator/)
+  services.redis.servers."ip-allocator" = {
+    enable = true;
+    port = 6379;
+    bind = "127.0.0.1";
+
+    settings = {
+      # RDB snapshots: save after 900s if 1 key changed, 300s if 10, 60s if 10000
+      save = "900 1 300 10 60 10000";
+
+      # AOF (Append Only File) for better durability
+      appendonly = "yes";
+      appendfsync = "everysec";  # "always" (safest), "everysec" (balanced), "no" (fastest)
+
+      # Memory limits
+      maxmemory = "256mb";
+      maxmemory-policy = "noeviction";
+    };
+  };
+
+  # Ensure proper service ordering
+  systemd.services.ip-allocator-webserver = {
+    after = [ "redis-ip-allocator.service" ];
+    wants = [ "redis-ip-allocator.service" ];
+  };
+}
+```
+
+### Redis Persistence Options
+
+| Option | Description |
+|--------|-------------|
+| `save` | RDB snapshot intervals (seconds keys-changed) |
+| `appendonly` | Enable AOF for write-ahead logging |
+| `appendfsync` | How often to sync AOF: `always`, `everysec`, or `no` |
+| `maxmemory` | Memory limit (e.g., `256mb`, `1gb`) |
+| `maxmemory-policy` | What to do when memory is full: `noeviction`, `allkeys-lru`, etc. |
+
 ## Examples
 
 See the `examples/` directory for complete configuration examples:
 
 - `basic.nix` - Minimal configuration
 - `with-subscribers.nix` - Full configuration with webhook subscribers
-- `flake-usage.nix` - Complete flake.nix example
+- `with-persistent-redis.nix` - Configuration with persistent Redis
+- `flake-usage.nix` - Complete flake.nix example with persistence
 
 ## Troubleshooting
 

@@ -1,7 +1,7 @@
 # Example flake.nix showing how to use ip-allocator-webserver in your NixOS config
 #
 # This is a complete example of a NixOS flake that imports and uses the
-# ip-allocator-webserver module.
+# ip-allocator-webserver module with persistent Redis.
 
 {
   description = "My NixOS configuration with IP Allocator Webserver";
@@ -30,7 +30,7 @@
 
         # Your configuration
         ({ config, pkgs, ... }: {
-          # Enable the service
+          # Enable the IP allocator service
           services.ip-allocator-webserver = {
             enable = true;
             package = pkgs.ip-allocator-webserver;
@@ -38,7 +38,7 @@
             redisUrl = "redis://127.0.0.1:6379/";
             openFirewall = true;
 
-            # Optional: Configure subscribers
+            # Optional: Configure webhook subscribers
             subscribers.borrow.subscribers.myWebhook = {
               post = "http://localhost:9000/on-borrow";
               mustSucceed = false;
@@ -46,8 +46,31 @@
             };
           };
 
-          # Enable Redis as the backing store
-          services.redis.servers."".enable = true;
+          # Redis with persistence for durable storage
+          services.redis.servers."ip-allocator" = {
+            enable = true;
+            port = 6379;
+            bind = "127.0.0.1";
+
+            settings = {
+              # RDB snapshots
+              save = "900 1 300 10 60 10000";
+
+              # AOF persistence
+              appendonly = "yes";
+              appendfsync = "everysec";
+
+              # Memory limits
+              maxmemory = "256mb";
+              maxmemory-policy = "noeviction";
+            };
+          };
+
+          # Ensure proper service ordering
+          systemd.services.ip-allocator-webserver = {
+            after = [ "redis-ip-allocator.service" ];
+            wants = [ "redis-ip-allocator.service" ];
+          };
 
           # ... rest of your NixOS configuration
         })
