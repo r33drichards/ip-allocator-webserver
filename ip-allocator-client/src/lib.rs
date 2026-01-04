@@ -12,12 +12,12 @@
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let client = Client::new("http://localhost:8000");
 //!
-//!     // Borrow an item (immediate return)
-//!     let result = client.handlers_ip_borrow(None).await?;
+//!     // Borrow an item (immediate return, no params)
+//!     let result = client.handlers_ip_borrow(None, None).await?;
 //!     println!("Borrowed item: {:?}", result);
 //!
-//!     // Or wait up to 30 seconds for an item to become available
-//!     // let result = client.handlers_ip_borrow(Some(30)).await?;
+//!     // Or pass params to subscribers and wait up to 30 seconds
+//!     // let result = client.handlers_ip_borrow(Some("{\"key\":\"value\"}".into()), Some(30)).await?;
 //!
 //!     Ok(())
 //! }
