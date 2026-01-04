@@ -2,9 +2,9 @@ name: NixOS VM Test
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "**" ]
+    branches: [ main ]
 
 jobs:
   nixos-vm-test:
