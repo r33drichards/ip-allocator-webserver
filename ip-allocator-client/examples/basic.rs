@@ -19,6 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let return_input = ip_allocator_client::types::ReturnInput {
         item: borrow_result.item.clone(),
         borrow_token: borrow_result.borrow_token.clone(),
+        params: None,
     };
     let return_result = client.handlers_ip_return_item(&return_input).await?;
     println!("✅ Return operation initiated: {:?}", return_result);
