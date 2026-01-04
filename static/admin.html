@@ -500,8 +500,8 @@
                 const response = await fetch(`${API_BASE}/admin/stats`);
                 const data = await response.json();
 
-                document.getElementById('stat-total-items').textContent = data.total_items;
-                document.getElementById('stat-borrowed-items').textContent = data.borrowed_items;
+                document.getElementById('stat-total-items').textContent = data.free_count;
+                document.getElementById('stat-borrowed-items').textContent = data.borrowed_count;
                 document.getElementById('stat-pending-ops').textContent = data.pending_operations;
                 document.getElementById('stat-failed-ops').textContent = data.failed_operations;
             } catch (error) {
