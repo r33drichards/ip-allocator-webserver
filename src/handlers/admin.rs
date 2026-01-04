@@ -61,8 +61,8 @@ pub struct OperationDetail {
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct StatsResponse {
-    total_items: usize,
-    borrowed_items: usize,
+    free_count: usize,
+    borrowed_count: usize,
     pending_operations: usize,
     failed_operations: usize,
 }
@@ -200,8 +200,8 @@ pub async fn delete_operation(app: &State<AppState>, id: &str) -> OResult<Succes
 pub async fn get_stats(store: &State<Mutex<Store>>, app: &State<AppState>) -> OResult<StatsResponse> {
     let store = store.lock().await;
 
-    let total_items = store.list_all_items().unwrap_or_default().len();
-    let borrowed_items = store.list_borrowed_items().unwrap_or_default().len();
+    let free_count = store.list_all_items().unwrap_or_default().len();
+    let borrowed_count = store.list_borrowed_items().unwrap_or_default().len();
 
     let ops = app.ops.get_all().await;
     let pending_operations = ops.iter().filter(|op| {
@@ -212,8 +212,8 @@ pub async fn get_stats(store: &State<Mutex<Store>>, app: &State<AppState>) -> OR
     }).count();
 
     Ok(Json(StatsResponse {
-        total_items,
-        borrowed_items,
+        free_count,
+        borrowed_count,
         pending_operations,
         failed_operations,
     }))
