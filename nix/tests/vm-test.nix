@@ -94,13 +94,13 @@ pkgs.testers.nixosTest {
         result = server.succeed("curl -s http://localhost:8000/borrow")
         borrow_response = json.loads(result)
         assert "item" in borrow_response, f"Expected 'item' in response, got: {borrow_response}"
-        assert "token" in borrow_response, f"Expected 'token' in response, got: {borrow_response}"
+        assert "borrow_token" in borrow_response, f"Expected 'borrow_token' in response, got: {borrow_response}"
         assert borrow_response["item"] == "192.168.1.100", f"Wrong item: {borrow_response['item']}"
         print(f"Borrow result: {borrow_response}")
 
     # Store token for return
     borrowed_item = borrow_response["item"]
-    borrow_token = borrow_response["token"]
+    borrow_token = borrow_response["borrow_token"]
 
     # Test 5: Verify item is now borrowed
     with subtest("Verify item is borrowed"):
@@ -121,7 +121,7 @@ pkgs.testers.nixosTest {
         result = server.succeed(
             f"curl -s -X POST http://localhost:8000/return "
             f"-H 'Content-Type: application/json' "
-            f"-d '{{\"item\": \"{borrowed_item}\", \"token\": \"{borrow_token}\"}}'"
+            f"-d '{{\"item\": \"{borrowed_item}\", \"borrow_token\": \"{borrow_token}\"}}'"
         )
         print(f"Return result: {result}")
 
